@@ -67,13 +67,13 @@ byte g_WU[8]= {
 
 byte g_WD[8]= {
     0b00000,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111
+    0b10101,
+    0b01010,
+    0b10101,
+    0b01010,
+    0b10101,
+    0b01010,
+    0b10101
 };
 
 byte g_WU_BU[8]= {
@@ -89,35 +89,35 @@ byte g_WU_BU[8]= {
 
 byte g_WD_BU[8]= {
     0b00000,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111
+    0b10100,
+    0b01000,
+    0b10100,
+    0b01000,
+    0b10101,
+    0b01010,
+    0b10101
 };
 
 byte g_WU_BD[8]= {
-    0b11111,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
+    0b11101,
+    0b11110,
+    0b11101,
+    0b11110,
+    0b11101,
+    0b11110,
     0b11111,
     0b00000
 };
 
 byte g_WD_BD[8]= {
-    0b00000,
-    0b11111,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
+    0b00001,
+    0b10110,
+    0b01001,
+    0b10110,
+    0b01001,
+    0b10110,
+    0b01010,
+    0b10101,
 };
 
 byte g_SH[8]= {
@@ -190,15 +190,16 @@ enum
 
 enum
 {
-  OPT_NONE = 0,
-  OPT_INV1,
-  OPT_INV2
+  INVERSION_NONE   = -1,
+  INVERSION_FIRST  = 0,
+  INVERSION_SECOND = 1
 };
 
-byte determineChord(int& rootNote, int& chordType)
+byte determineChord(int& rootNote, int& chordType, int& inversionType)
 {
   rootNote = ROOT_NONE;
   chordType = CHORD_NONE;
+  inversionType = INVERSION_NONE;
   
   if(keyStatus & KEY_C)               rootNote = ROOT_C;
   else if(keyStatus & KEY_CSHARP)     rootNote = ROOT_CSHARP;
@@ -224,66 +225,82 @@ byte determineChord(int& rootNote, int& chordType)
   else if(keyStatus & KEY_SUS4)  chordType = CHORD_SUS4;
   else if(keyStatus & KEY_MIN)   chordType = CHORD_MIN;
   else if(keyStatus & KEY_7TH)   chordType = CHORD_7;  
+  
+  if (keyStatus & KEY_INVERSION1)       inversionType = INVERSION_FIRST;
+  else if (keyStatus & KEY_INVERSION2)  inversionType = INVERSION_SECOND;
   return 1;
 }
 
-int buildChord(int rootNote, int chordType, byte *chord)
+int buildChord(int rootNote, int chordType, int inversionType, byte *chord)
 {
+   int rootOfs = 0;
+   int thirdOfs = 0;
+   if(inversionType == INVERSION_FIRST)
+   {
+     rootOfs = 12;
+   }
+   else if(inversionType == INVERSION_SECOND)
+   {
+     rootOfs = 12;
+     thirdOfs = 12;
+   }
+   
+   
    int len = 0;
    switch(chordType)
    {
      case CHORD_MAJ:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 4 + rootNote;   // major third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 4 + rootNote + thirdOfs;   // major third
        chord[len++] = 7 + rootNote;   // fifth
        break;
      case CHORD_MIN:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 3 + rootNote;   // minor third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 3 + rootNote + thirdOfs;   // minor third
        chord[len++] = 7 + rootNote;   // fifth
        break;
      case CHORD_7:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 4 + rootNote;   // major third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 4 + rootNote + thirdOfs;   // major third
        chord[len++] = 7 + rootNote;   // fifth
        chord[len++] = 10 + rootNote;  // dominant 7
        break;
      case CHORD_MAJ7:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 4 + rootNote;   // major third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 4 + rootNote + thirdOfs;   // major third
        chord[len++] = 7 + rootNote;   // fifth
        chord[len++] = 11 + rootNote;  // major 7
        break;
      case CHORD_MIN7:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 3 + rootNote;   // minor third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 3 + rootNote + thirdOfs;   // minor third
        chord[len++] = 7 + rootNote;   // fifth
        chord[len++] = 10 + rootNote;  // dominant 7
        break;
      case CHORD_6:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 4 + rootNote;   // major third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 4 + rootNote + thirdOfs;   // major third
        chord[len++] = 9 + rootNote;   // sixth
        break;
      case CHORD_MIN6:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 3 + rootNote;   // minor third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 3 + rootNote + thirdOfs;   // minor third
        chord[len++] = 9 + rootNote;   // sixth
        break;
      case CHORD_9:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 4 + rootNote;   // major third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 4 + rootNote + thirdOfs;   // major third
        chord[len++] = 7 + rootNote;   // fifth
        chord[len++] = 14 + rootNote;  // ninth
        break;
      case CHORD_SUS4:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 5 + rootNote;   // suspended fourth
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 5 + rootNote + thirdOfs;   // suspended fourth
        chord[len++] = 7 + rootNote;   // fifth
        break;
      case CHORD_DIM:
-       chord[len++] = 0 + rootNote;   // root
-       chord[len++] = 3 + rootNote;   // minor third
+       chord[len++] = 0 + rootNote + rootOfs;   // root
+       chord[len++] = 3 + rootNote + thirdOfs;   // minor third
        chord[len++] = 6 + rootNote;   // sharpened fifth
        chord[len++] = 10 + rootNote;  // dominant 7
        break;
@@ -419,31 +436,6 @@ int keysScan()
 }
 
 
-void showChordNotes()
-{
-  char *notes = "C C#D D#E F F#G G#A A#B ";
-  char disp[30];
-  memset(disp, ' ', sizeof disp);
-  int pos = 0;
-  for(int i=0; i<128; ++i)
-  {
-    if(noteHeld[i])
-    {
-      char note = i%12;
-      disp[pos++] = notes[2*note];      
-      disp[pos] = notes[2*note+1];
-      if(disp[pos] == '#')
-        disp[pos] = CH_SH;
-      ++pos;
-    }
-    if(pos >= 16)
-      break;
-  }
-  disp[16] = '\0';
-  lcd.setCursor(0, 0);
-  lcd.print(disp);
-}
-
 void showChord()
 {
   char disp[30];
@@ -553,6 +545,7 @@ void setup()
 
 int rootNote = ROOT_NONE;
 int chordType = CHORD_NONE;  
+int inversionType = INVERSION_NONE;  
 void loop() {
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
@@ -562,36 +555,17 @@ void loop() {
 
   int rt;
   int ch;  
-  determineChord(rt, ch);
-  if(rt != rootNote || ch != chordType)
+  int it;
+  determineChord(rt, ch, it);
+  if(rt != rootNote || ch != chordType || it != inversionType)
   {
     rootNote = rt;
     chordType = ch;  
+    inversionType = it;
     byte chord[20];
-    int len = buildChord(60 + rootNote, chordType, chord);
+    int len = buildChord(60 + rootNote, chordType, inversionType, chord);
     playChord(chord, len);    
     showChord();
-//    showChordNotes();
-  }
-  
-  /*
-  noteHeld[0] = !!(keyStatus & KEY_C);
-  noteHeld[1] = !!(keyStatus & KEY_CSHARP);
-  noteHeld[2] = !!(keyStatus & KEY_D);
-  noteHeld[3] = !!(keyStatus & KEY_DSHARP);
-  noteHeld[4] = !!(keyStatus & KEY_E);
-  noteHeld[5] = !!(keyStatus & KEY_F);
-  noteHeld[6] = !!(keyStatus & KEY_FSHARP);
-  noteHeld[7] = !!(keyStatus & KEY_G);
-  noteHeld[8] = !!(keyStatus & KEY_GSHARP);
-  noteHeld[9] = !!(keyStatus & KEY_A);
-  noteHeld[10] = !!(keyStatus & KEY_ASHARP);
-  noteHeld[11] = !!(keyStatus & KEY_B);
-  */
-  
-//  showKeys();
-//  lcd.setCursor(0, 0);
-//  lcd.print(keyStatus, HEX);
-//  lcd.print("...");
+  }  
 }
 
