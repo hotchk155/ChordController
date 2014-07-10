@@ -54,7 +54,106 @@ LiquidCrystal lcd(15, 19, 14, 12, 11, 10);
 #define KEY_B             0x00000001UL
 #define KEY_OCT_UP        0x00000100UL
 
+byte g_WU[8]= {
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b00000
+};
+
+byte g_WD[8]= {
+    0b00000,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111
+};
+
+byte g_WU_BU[8]= {
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b00000
+};
+
+byte g_WD_BU[8]= {
+    0b00000,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11111,
+    0b11111,
+    0b11111,
+    0b11111
+};
+
+byte g_WU_BD[8]= {
+    0b11111,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11111,
+    0b00000
+};
+
+byte g_WD_BD[8]= {
+    0b00000,
+    0b11111,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11100,
+    0b11111,
+};
+
+byte g_SH[8]= {
+    0b00101,
+    0b01111,
+    0b01010,
+    0b11110,
+    0b10100,
+    0b00000,
+    0b00000,
+    0b00000,
+};
+
+#define CH_WU     (byte)0
+#define CH_WD     (byte)1
+#define CH_WU_BU  (byte)2
+#define CH_WU_BD  (byte)3
+#define CH_WD_BU  (byte)4
+#define CH_WD_BD  (byte)5
+#define CH_SH     (byte)6
+
+
+#define MIDI_CHAN 0
+void midiSetup()
+{
+  Serial.begin(31250);
+}
+void midiNote(byte chan, byte note, byte vel)
+{
+  Serial.write(0x90|chan);
+  Serial.write(note&0x7F); 
+  Serial.write(vel&0x7f);
+}
+
 unsigned long keyStatus = 0;
+byte noteHeld[128];
 
 
 enum 
@@ -99,7 +198,7 @@ enum
 byte determineChord(int& rootNote, int& chordType)
 {
   rootNote = ROOT_NONE;
-  chordType = CHORD_MAJ;
+  chordType = CHORD_NONE;
   
   if(keyStatus & KEY_C)               rootNote = ROOT_C;
   else if(keyStatus & KEY_CSHARP)     rootNote = ROOT_CSHARP;
@@ -115,6 +214,7 @@ byte determineChord(int& rootNote, int& chordType)
   else if(keyStatus & KEY_B)          rootNote = ROOT_B;  
   else return 0;
   
+  chordType = CHORD_MAJ;
   if(keyStatus & KEY_MAJ7)       chordType = CHORD_MAJ7;
   else if(keyStatus & KEY_MIN7)  chordType = CHORD_MIN7;
   else if(keyStatus & KEY_6TH)   chordType = CHORD_6;
@@ -189,6 +289,38 @@ int buildChord(int rootNote, int chordType, byte *chord)
        break;
    }
   return len;   
+}
+
+void playChord(byte *chord, int length)
+{
+  int i;
+  
+  // unflag existing notes which are also in the
+  // new chord
+  for(i=0; i<length; ++i)
+  {
+    byte ch = (chord[i]&0x7F);
+    noteHeld[ch] = 0;
+  }
+   
+  // unflag and mute the remaining notes
+  for(i=0; i<128; ++i)
+  {
+    if(noteHeld[i])
+    {
+      midiNote(MIDI_CHAN, i, 0);
+      noteHeld[i] = 0;
+    }
+  }
+  
+  // play the new notes
+  for(i=0; i<length; ++i)
+  {
+    byte ch = (chord[i]&0x7F);
+    midiNote(MIDI_CHAN, ch, 127);
+    noteHeld[ch] = 1;
+  }
+  
 }
 
 void showKeys()
@@ -286,119 +418,99 @@ int keysScan()
   digitalWrite(P_SCAN7, LOW); 
 }
 
-byte g_WU[8]= {
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b00000
-};
 
-byte g_WD[8]= {
-    0b00000,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111
-};
-
-byte g_WU_BU[8]= {
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b00000
-};
-
-byte g_WD_BU[8]= {
-    0b00000,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
-    0b11111,
-    0b11111,
-    0b11111
-};
-
-byte g_WU_BD[8]= {
-    0b11111,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
-    0b00000
-};
-
-byte g_WD_BD[8]= {
-    0b00000,
-    0b11111,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11100,
-    0b11111,
-};
-
-#define CH_WU     (byte)0
-#define CH_WD     (byte)1
-#define CH_WU_BU  (byte)2
-#define CH_WU_BD  (byte)3
-#define CH_WD_BU  (byte)4
-#define CH_WD_BD  (byte)5
-
-byte noteHeld[128];
-
+void showChordNotes()
+{
+  char *notes = "C C#D D#E F F#G G#A A#B ";
+  char disp[30];
+  memset(disp, ' ', sizeof disp);
+  int pos = 0;
+  for(int i=0; i<128; ++i)
+  {
+    if(noteHeld[i])
+    {
+      char note = i%12;
+      disp[pos++] = notes[2*note];      
+      disp[pos] = notes[2*note+1];
+      if(disp[pos] == '#')
+        disp[pos] = CH_SH;
+      ++pos;
+    }
+    if(pos >= 16)
+      break;
+  }
+  disp[16] = '\0';
+  lcd.setCursor(0, 0);
+  lcd.print(disp);
+}
 
 void showChord()
 {
+  char disp[30];
+  memset(disp, ' ', sizeof disp);
+  char *notes = "CCDDEFFGGAAB";
+  int textCount = 0;
+  
   lcd.setCursor(0, 1);
   int note = 0;
+  while(note < 128 && !noteHeld[note]) 
+    note++;
+  note = 12 * (note/12);
   int charCount = 0;
   while(charCount < 16)
   {
     char chDisp = -1;
-    switch(note % 12)
+    if(textCount < charCount)
+      textCount = charCount;
+    int n = note%12;
+    switch(n)
     {
       case 0:  // C
       case 2:  // D
       case 5:  // F
       case 7:  // G
       case 9:  // A      
-        if(noteHeld[note])
+        if(note < 128 && noteHeld[note])
         {
-          if(noteHeld[note+1])          
+          if(note < 127 && noteHeld[note+1])          
+          {
+            disp[textCount++] = notes[n];
+            disp[textCount++] = notes[n];
+            disp[textCount++] = '#';
             chDisp = CH_WD_BD;
+          }
           else
+          {
+            disp[textCount++] = notes[n];
             chDisp = CH_WD_BU;
+          }
         }
         else
         {
-          if(noteHeld[note+1])          
+          if(note < 127 && noteHeld[note+1])          
+          {
+            disp[textCount++] = notes[n];
+            disp[textCount++] = CH_SH;
             chDisp = CH_WU_BD;
+          }
           else
+          {
             chDisp = CH_WU_BU;
+          }
         }
         note+=2;
         break;
       case 4:  // E      
       case 11: // B
-        if(noteHeld[note])
+        if(note < 128 && noteHeld[note])
+        {
+          disp[textCount++] = notes[n];
           chDisp = CH_WD;
+        }
         else
+        {
           chDisp = CH_WU;
+        }
         ++note;
         break;
       
@@ -416,6 +528,9 @@ void showChord()
       ++charCount;
     }
   }
+  disp[16] = '\0';
+  lcd.setCursor(0, 0);
+  lcd.print(disp);
 }
 
 void setup() 
@@ -427,12 +542,17 @@ void setup()
   lcd.createChar(CH_WU_BD, g_WU_BD);
   lcd.createChar(CH_WD_BU, g_WD_BU);
   lcd.createChar(CH_WD_BD, g_WD_BD);
+  lcd.createChar(CH_SH,    g_SH);
   lcd.begin(16, 2);
   keysSetup();
-  // Print a message to the LCD.
-  
+  midiSetup();
+  memset(noteHeld, 0, sizeof noteHeld);
+  showChord();
 }
 
+
+int rootNote = ROOT_NONE;
+int chordType = CHORD_NONE;  
 void loop() {
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
@@ -440,11 +560,19 @@ void loop() {
 //  lcd.setCursor(0, 1);
   // print the number of seconds since reset:
 
-  int rootNote;
-  int chordType;  
-  memset(noteHeld, 0, sizeof noteHeld);
-  if(determineChord(rootNote, chordType))
-    buildChord(rootNote, chordType, noteHeld);  
+  int rt;
+  int ch;  
+  determineChord(rt, ch);
+  if(rt != rootNote || ch != chordType)
+  {
+    rootNote = rt;
+    chordType = ch;  
+    byte chord[20];
+    int len = buildChord(60 + rootNote, chordType, chord);
+    playChord(chord, len);    
+    showChord();
+//    showChordNotes();
+  }
   
   /*
   noteHeld[0] = !!(keyStatus & KEY_C);
@@ -462,7 +590,6 @@ void loop() {
   */
   
 //  showKeys();
-  showChord();
 //  lcd.setCursor(0, 0);
 //  lcd.print(keyStatus, HEX);
 //  lcd.print("...");
