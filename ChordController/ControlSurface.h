@@ -10,6 +10,7 @@ public:
   unsigned long rootKey;
   unsigned long chordKey;
   unsigned long inversionKey;
+  unsigned long commandKey;
 
   enum {
     DEBOUNCE_PERIOD = 20 //ms
@@ -68,10 +69,11 @@ public:
     K_B       = 0x00000001UL,
     K_OCT_UP  = 0x00000100UL,
     
-    K_ROOT_MASK   = (K_C|K_CSHARP|K_D|K_DSHARP|K_E|K_F|K_FSHARP|K_G|K_GSHARP|K_A|K_ASHARP|K_B),
-    K_CHORD_MASK  = (K_MAJ7|K_MIN7|K_6TH|K_MIN6|K_9TH|K_DIM|K_SUS4|K_MIN|K_7TH),
-    K_INV_MASK    = (K_INV1|K_INV2)
-
+    K_ROOT_MASK     = (K_C|K_CSHARP|K_D|K_DSHARP|K_E|K_F|K_FSHARP|K_G|K_GSHARP|K_A|K_ASHARP|K_B),
+    K_CHORD_MASK    = (K_MAJ7|K_MIN7|K_6TH|K_MIN6|K_9TH|K_DIM|K_SUS4|K_MIN|K_7TH),
+    K_INV_MASK      = (K_INV1|K_INV2),
+    K_COMMAND_MASK  = (K_UP|K_DOWN|K_MODE|K_SPARE|K_OCT_DOWN|K_OCT_UP)
+    
   };
 
   
@@ -104,6 +106,7 @@ public:
       rootKey = 0;
       chordKey = 0;
       inversionKey = 0;
+      commandKey = 0;
       debounceTime = 0;
   }
   
@@ -189,9 +192,13 @@ public:
       else if(!(inversionKey & result))
         inversionKey = (result & K_INV_MASK);
     }
-   digitalWrite(P_LED0, !!(rootKey));
-   digitalWrite(P_LED1, !!(chordKey));
-   digitalWrite(P_LED2, !!(inversionKey));
+    if(delta & K_COMMAND_MASK)
+    {
+      if(newPressed & K_COMMAND_MASK)
+        commandKey = (newPressed & K_COMMAND_MASK);
+      else 
+        commandKey = 0;
+    }
       
     scanResult = result;
     return 1;        
