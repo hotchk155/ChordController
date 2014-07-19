@@ -8,6 +8,7 @@
 // rrrr Root note
 
 typedef unsigned int CHORD_TYPE;
+#define MK_CHORD_TYPE(root, chord) (unsigned long)((root)&0x0F)| ((unsigned long)((chord)&0x0F)<<4)
 
 enum 
 {
@@ -51,4 +52,9 @@ enum
   INV_SECOND   = 0x0200
 };
 
-
+enum 
+{
+   KEYTYPE_NONE,
+   KEYTYPE_MAJOR,
+   KEYTYPE_MINOR
+};

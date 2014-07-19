@@ -19,6 +19,146 @@ byte octave;
 char notesHeldText[30];
 char notesHeldGraphic[30];
 
+CHORD_TYPE  noteButtons[12];
+
+
+byte major[12] = { 
+  CHORD_MAJ,   // i
+  CHORD_MIN, 
+  CHORD_MIN,   // ii
+  CHORD_MAJ, 
+  CHORD_MIN,   // iii
+  CHORD_MAJ,   // iv
+  CHORD_DIM, 
+  CHORD_MAJ,   // v
+  CHORD_MAJ, 
+  CHORD_MIN,   // vi
+  CHORD_MAJ, 
+  CHORD_DIM    // vii
+};
+
+byte minor[12] = { 
+  CHORD_MIN,   // i
+  CHORD_MAJ, 
+  CHORD_DIM,   // ii
+  CHORD_MAJ,   // iii
+  CHORD_MIN, 
+  CHORD_MIN,   // iv
+  CHORD_DIM, 
+  CHORD_MIN,   // v
+  CHORD_MAJ,   // vi
+  CHORD_MIN, 
+  CHORD_MAJ,   // vii
+  CHORD_MAJ 
+};
+  
+
+void setChordButtonsMajorTransposed(int scaleRoot)
+{  
+  for(int i=0; i<12; ++i)
+  {
+    noteButtons[i] = scaleRoot | major[i];  
+    if(++scaleRoot > ROOT_B)
+      scaleRoot = ROOT_C;
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+// Set up the chord buttons for a MINOR mode
+// The first parameter is the root note applied to the first button
+// The second parameter defines the musical key (minor)
+void setChordButtonsMinorTransposed(int scaleRoot)
+{
+  int order[12] = {0,1,2,4,3,5,6,7,9,8,11,10};
+  for(int i=0; i<12; ++i)
+  {
+    noteButtons[order[i]] = scaleRoot | minor[i];  
+    if(++scaleRoot > ROOT_B)
+      scaleRoot = ROOT_C;
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+// For a given note in a scale, and a given keyType, return the
+// appropriate chord type
+CHORD_TYPE getChordTypeForNoteButton(int whichButton, byte keyType)
+{
+  switch(keyType)
+  {
+    /////////////////////////////////////////////////////////////
+    // Constrained to a major key
+  case KEYTYPE_MAJOR:
+    switch(whichButton)
+    {
+      // Standard Chords
+    case 0:  // I
+    case 5:  // IV
+    case 7:  // V
+      return CHORD_MAJ;
+    case 2:  // ii
+    case 4:  // iii
+    case 9:  // vi
+      return CHORD_MIN;
+    case 11:  // vii
+      return CHORD_DIM;
+
+      // oddness
+    case 10:  // viib
+    case 3:  //
+    case 8:  //
+      return CHORD_MAJ;
+    case 6:  // 
+      return CHORD_DIM;
+    case 1:  //
+      return CHORD_MIN;
+    }
+
+    /////////////////////////////////////////////////////////////
+    // Constrained to a minor key
+  case KEYTYPE_MINOR:
+    switch(whichButton)
+    {
+    case 0:  // i
+    case 4:  // iii
+    case 7:  // v
+      return CHORD_MIN;
+    case 5:  // IV
+    case 9:  // VI
+    case 11:  // VII
+      return CHORD_MAJ;
+    case 2:  // ii
+      return CHORD_DIM;
+
+      // guesswork
+    case 1:  //
+    case 3:  //
+      return CHORD_MAJ;
+    case 6:  // 
+      return CHORD_DIM;
+    case 8:  //
+    case 10:  //        
+      return CHORD_MIN;
+    }
+
+    /////////////////////////////////////////////////////////////
+    // Free play, default to major chords
+  case KEYTYPE_NONE:
+  default:
+    return CHORD_MAJ;
+  }
+}
+void mapNoteButtons(byte rootNote, byte keyType, byte transpose)
+{
+  int note = rootNote;
+  for(int whichButton=0; whichButton<12; ++whichButton)
+  {    
+    int b = transpose? whichButton : note - 1;
+    noteButtons[b] = (note&0x0F) | getChordTypeForNoteButton(b, keyType);
+    if(++note > ROOT_B)
+      note = ROOT_C;
+  }  
+}
+
 //////////////////////////////////////////////////////////////////
 //
 // LOW LEVEL KEYBOARD
@@ -41,36 +181,146 @@ void midiNote(byte chan, byte note, byte vel)
   Serial.write(vel&0x7f);
 }
 
+void getChordName(CHORD_TYPE chord, char *chordName)
+{
+  if(CHORD_NONE == chord)
+    return;
+    
+  int pos = 0;
+  switch(chord & ROOT_MASK)
+  {
+  case ROOT_C:          
+    chordName[pos++] = 'C'; 
+    break;
+  case ROOT_CSHARP:     
+    chordName[pos++] = 'C'; 
+    chordName[pos++] = CH_SH; 
+    break;
+  case ROOT_D:          
+    chordName[pos++] = 'D'; 
+    break;
+  case ROOT_DSHARP:     
+    chordName[pos++] = 'D'; 
+    chordName[pos++] = CH_SH; 
+    break;
+  case ROOT_E:          
+    chordName[pos++] = 'E'; 
+    break;
+  case ROOT_F:          
+    chordName[pos++] = 'F'; 
+    break;
+  case ROOT_FSHARP:     
+    chordName[pos++] = 'F'; 
+    chordName[pos++] = CH_SH; 
+    break;
+  case ROOT_G:          
+    chordName[pos++] = 'G'; 
+    break;
+  case ROOT_GSHARP:     
+    chordName[pos++] = 'G'; 
+    chordName[pos++] = CH_SH; 
+    break;
+  case ROOT_A:          
+    chordName[pos++] = 'A'; 
+    break;
+  case ROOT_ASHARP:     
+    chordName[pos++] = 'A'; 
+    chordName[pos++] = CH_SH; 
+    break;
+  case ROOT_B:          
+    chordName[pos++] = 'B'; 
+    break;
+  default:              
+    chordName[pos++] = '?'; 
+    break;
+  }
+
+  //  byte octave = (chord>>12) & 0x0F;
+  //  chordName[pos++] = '0' + octave: break;
+
+  switch(chord & CHORD_MASK)
+  {
+  case CHORD_MAJ:    
+    break;
+  case CHORD_MAJ7:   
+    chordName[pos++] = 'M'; 
+    chordName[pos++] = '7'; 
+    break;
+  case CHORD_MIN7:   
+    chordName[pos++] = 'm'; 
+    chordName[pos++] = '7'; 
+    break;
+  case CHORD_6:      
+    chordName[pos++] = '6'; 
+    break;
+  case CHORD_MIN6:   
+    chordName[pos++] = 'm'; 
+    chordName[pos++] = '6'; 
+    break;
+  case CHORD_9:      
+    chordName[pos++] = '9';
+    break;
+  case CHORD_DIM:    
+    chordName[pos++] =  0b11011111;
+    break;
+  case CHORD_SUS4:   
+    chordName[pos++] = 's'; 
+    chordName[pos++] = '4';
+    break;
+  case CHORD_MIN:    
+    chordName[pos++] = 'm'; 
+    break;
+  case CHORD_7:      
+    chordName[pos++] = '7'; 
+    break;
+  case CHORD_NONE:
+    break;
+  default:           
+    chordName[pos++] = '?'; 
+    break;
+  }
+
+};
+
+
 //////////////////////////////////////////////////////////////////
 byte determineChord(byte octave, CHORD_TYPE& chord)
 {
 
-  chord = 0;
+  chord = CHORD_NONE;
 
-  if(ControlSurface.rootKey & CControlSurface::K_C)               chord |= ROOT_C;
-  else if(ControlSurface.rootKey & CControlSurface::K_CSHARP)     chord |= ROOT_CSHARP;
-  else if(ControlSurface.rootKey & CControlSurface::K_D)          chord |= ROOT_D;
-  else if(ControlSurface.rootKey & CControlSurface::K_DSHARP)     chord |= ROOT_DSHARP;
-  else if(ControlSurface.rootKey & CControlSurface::K_E)          chord |= ROOT_E;
-  else if(ControlSurface.rootKey & CControlSurface::K_F)          chord |= ROOT_F;
-  else if(ControlSurface.rootKey & CControlSurface::K_FSHARP)     chord |= ROOT_FSHARP;
-  else if(ControlSurface.rootKey & CControlSurface::K_G)          chord |= ROOT_G;
-  else if(ControlSurface.rootKey & CControlSurface::K_GSHARP)     chord |= ROOT_GSHARP;
-  else if(ControlSurface.rootKey & CControlSurface::K_A)          chord |= ROOT_A;
-  else if(ControlSurface.rootKey & CControlSurface::K_ASHARP)     chord |= ROOT_ASHARP;
-  else if(ControlSurface.rootKey & CControlSurface::K_B)          chord |= ROOT_B;  
+  if(ControlSurface.rootKey & CControlSurface::K_C)               chord = noteButtons[0];
+  else if(ControlSurface.rootKey & CControlSurface::K_CSHARP)     chord = noteButtons[1];
+  else if(ControlSurface.rootKey & CControlSurface::K_D)          chord = noteButtons[2];
+  else if(ControlSurface.rootKey & CControlSurface::K_DSHARP)     chord = noteButtons[3];
+  else if(ControlSurface.rootKey & CControlSurface::K_E)          chord = noteButtons[4];
+  else if(ControlSurface.rootKey & CControlSurface::K_F)          chord = noteButtons[5];
+  else if(ControlSurface.rootKey & CControlSurface::K_FSHARP)     chord = noteButtons[6];
+  else if(ControlSurface.rootKey & CControlSurface::K_G)          chord = noteButtons[7];
+  else if(ControlSurface.rootKey & CControlSurface::K_GSHARP)     chord = noteButtons[8];
+  else if(ControlSurface.rootKey & CControlSurface::K_A)          chord = noteButtons[9];
+  else if(ControlSurface.rootKey & CControlSurface::K_ASHARP)     chord = noteButtons[10];
+  else if(ControlSurface.rootKey & CControlSurface::K_B)          chord = noteButtons[11];  
   else return 0;
 
-  if(ControlSurface.chordKey & CControlSurface::K_MAJ7)           chord |= CHORD_MAJ7;
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN7)      chord |= CHORD_MIN7;
-  else if(ControlSurface.chordKey & CControlSurface::K_6TH)       chord |= CHORD_6;
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN6)      chord |= CHORD_MIN6;
-  else if(ControlSurface.chordKey & CControlSurface::K_9TH)       chord |= CHORD_9;
-  else if(ControlSurface.chordKey & CControlSurface::K_DIM)       chord |= CHORD_DIM;
-  else if(ControlSurface.chordKey & CControlSurface::K_SUS4)      chord |= CHORD_SUS4;
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN)       chord |= CHORD_MIN;
-  else if(ControlSurface.chordKey & CControlSurface::K_7TH)       chord |= CHORD_7;  
-  else chord |= CHORD_MAJ;  
+  byte altChord = CHORD_NONE;
+  if(ControlSurface.chordKey & CControlSurface::K_MAJ7)           altChord = CHORD_MAJ7;
+  else if(ControlSurface.chordKey & CControlSurface::K_MIN7)      altChord = CHORD_MIN7;
+  else if(ControlSurface.chordKey & CControlSurface::K_6TH)       altChord = CHORD_6;
+  else if(ControlSurface.chordKey & CControlSurface::K_MIN6)      altChord = CHORD_MIN6;
+  else if(ControlSurface.chordKey & CControlSurface::K_9TH)       altChord = CHORD_9;
+  else if(ControlSurface.chordKey & CControlSurface::K_DIM)       altChord = CHORD_DIM;
+  else if(ControlSurface.chordKey & CControlSurface::K_SUS4)      altChord = CHORD_SUS4;
+  else if(ControlSurface.chordKey & CControlSurface::K_7TH)       altChord = CHORD_7;  
+  else if(ControlSurface.chordKey & CControlSurface::K_MIN)       altChord = (chord & CHORD_MASK) == CHORD_MAJ ? CHORD_MIN:CHORD_MAJ;  
+  
+
+
+  if(altChord != CHORD_NONE)
+  {
+    chord &= ~CHORD_MASK;
+    chord |= altChord;
+  }
 
   if(ControlSurface.inversionKey & CControlSurface::K_INV1)       chord |= INV_FIRST;
   else if (ControlSurface.inversionKey & CControlSurface::K_INV2) chord |= INV_SECOND;
@@ -337,6 +587,9 @@ void setup()
   ControlSurface.setLED(0, 0);
   ControlSurface.setLED(1, 0);
   ControlSurface.setLED(2, 0);
+
+  setChordButtonsMajorTransposed(ROOT_D);
+
 }
 
 void loop() {
@@ -357,15 +610,15 @@ void loop() {
     switch(ControlSurface.commandKey)
     {
       case CControlSurface::K_OCT_DOWN:
-        if(octave > MIN_OCTAVE)
-          --octave;
-        bChangeOfOctave = 1;                                                                         
-        break;
+      if(octave > MIN_OCTAVE)
+        --octave;
+      bChangeOfOctave = 1;                                                                         
+      break;
       case CControlSurface::K_OCT_UP:
-        if(octave < MAX_OCTAVE)
-          ++octave;
-        bChangeOfOctave = 1;
-        break;
+      if(octave < MAX_OCTAVE)
+        ++octave;
+      bChangeOfOctave = 1;
+      break;
     }
 
     CHORD_TYPE chord;    
@@ -377,7 +630,7 @@ void loop() {
     renderNotesHeld();
     if(bChangeOfOctave)
     {
-      char msg[8] = {"Oct X"};
+      char msg[8] = { "Oct X" };
       msg[4] = '0' + octave;
       Display.showRow(0, msg);
     }
@@ -385,8 +638,20 @@ void loop() {
     {
       Display.showRow(0, notesHeldText, 16);
     }
-    Display.showRow(1, notesHeldGraphic, 16);
+    char chordName[17] = {0};
+    getChordName(chord, chordName);
+      Display.showRow(1, chordName);
+    //Display.showRow(1, notesHeldGraphic, 16);
   }  
 }
 
 
+/*
+
+  0123456789012345
+  0123456789012345
+  
+  octave
+  
+  
+*/
