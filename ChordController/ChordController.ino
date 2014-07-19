@@ -51,7 +51,7 @@ byte minor[12] = {
   CHORD_MAJ,   // vii
   CHORD_MAJ 
 };
-  
+
 
 void setChordButtonsMajorTransposed(int scaleRoot)
 {  
@@ -69,7 +69,8 @@ void setChordButtonsMajorTransposed(int scaleRoot)
 // The second parameter defines the musical key (minor)
 void setChordButtonsMinorTransposed(int scaleRoot)
 {
-  int order[12] = {0,1,2,4,3,5,6,7,9,8,11,10};
+  int order[12] = {
+    0,1,2,4,3,5,6,7,9,8,11,10    };
   for(int i=0; i<12; ++i)
   {
     noteButtons[order[i]] = scaleRoot | minor[i];  
@@ -78,86 +79,6 @@ void setChordButtonsMinorTransposed(int scaleRoot)
   }
 }
 
-//////////////////////////////////////////////////////////////////
-// For a given note in a scale, and a given keyType, return the
-// appropriate chord type
-CHORD_TYPE getChordTypeForNoteButton(int whichButton, byte keyType)
-{
-  switch(keyType)
-  {
-    /////////////////////////////////////////////////////////////
-    // Constrained to a major key
-  case KEYTYPE_MAJOR:
-    switch(whichButton)
-    {
-      // Standard Chords
-    case 0:  // I
-    case 5:  // IV
-    case 7:  // V
-      return CHORD_MAJ;
-    case 2:  // ii
-    case 4:  // iii
-    case 9:  // vi
-      return CHORD_MIN;
-    case 11:  // vii
-      return CHORD_DIM;
-
-      // oddness
-    case 10:  // viib
-    case 3:  //
-    case 8:  //
-      return CHORD_MAJ;
-    case 6:  // 
-      return CHORD_DIM;
-    case 1:  //
-      return CHORD_MIN;
-    }
-
-    /////////////////////////////////////////////////////////////
-    // Constrained to a minor key
-  case KEYTYPE_MINOR:
-    switch(whichButton)
-    {
-    case 0:  // i
-    case 4:  // iii
-    case 7:  // v
-      return CHORD_MIN;
-    case 5:  // IV
-    case 9:  // VI
-    case 11:  // VII
-      return CHORD_MAJ;
-    case 2:  // ii
-      return CHORD_DIM;
-
-      // guesswork
-    case 1:  //
-    case 3:  //
-      return CHORD_MAJ;
-    case 6:  // 
-      return CHORD_DIM;
-    case 8:  //
-    case 10:  //        
-      return CHORD_MIN;
-    }
-
-    /////////////////////////////////////////////////////////////
-    // Free play, default to major chords
-  case KEYTYPE_NONE:
-  default:
-    return CHORD_MAJ;
-  }
-}
-void mapNoteButtons(byte rootNote, byte keyType, byte transpose)
-{
-  int note = rootNote;
-  for(int whichButton=0; whichButton<12; ++whichButton)
-  {    
-    int b = transpose? whichButton : note - 1;
-    noteButtons[b] = (note&0x0F) | getChordTypeForNoteButton(b, keyType);
-    if(++note > ROOT_B)
-      note = ROOT_C;
-  }  
-}
 
 //////////////////////////////////////////////////////////////////
 //
@@ -181,59 +102,67 @@ void midiNote(byte chan, byte note, byte vel)
   Serial.write(vel&0x7f);
 }
 
-void getChordName(CHORD_TYPE chord, char *chordName)
+void getNoteName(int note, char*&pos)
 {
-  if(CHORD_NONE == chord)
-    return;
-    
-  int pos = 0;
-  switch(chord & ROOT_MASK)
+  switch(note)
   {
-  case ROOT_C:          
-    chordName[pos++] = 'C'; 
+  case ROOT_C:       
+    *pos++ = 'C'; 
     break;
-  case ROOT_CSHARP:     
-    chordName[pos++] = 'C'; 
-    chordName[pos++] = CH_SH; 
+  case ROOT_CSHARP:  
+    *pos++ = 'C'; 
+    *pos++ = CH_SH; 
     break;
-  case ROOT_D:          
-    chordName[pos++] = 'D'; 
+  case ROOT_D:       
+    *pos++ = 'D'; 
     break;
-  case ROOT_DSHARP:     
-    chordName[pos++] = 'D'; 
-    chordName[pos++] = CH_SH; 
+  case ROOT_DSHARP:  
+    *pos++ = 'D'; 
+    *pos++ = CH_SH; 
     break;
-  case ROOT_E:          
-    chordName[pos++] = 'E'; 
+  case ROOT_E:       
+    *pos++ = 'E'; 
     break;
-  case ROOT_F:          
-    chordName[pos++] = 'F'; 
+  case ROOT_F:       
+    *pos++ = 'F'; 
     break;
-  case ROOT_FSHARP:     
-    chordName[pos++] = 'F'; 
-    chordName[pos++] = CH_SH; 
+  case ROOT_FSHARP:  
+    *pos++ = 'F'; 
+    *pos++ = CH_SH; 
     break;
-  case ROOT_G:          
-    chordName[pos++] = 'G'; 
+  case ROOT_G:       
+    *pos++ = 'G'; 
     break;
-  case ROOT_GSHARP:     
-    chordName[pos++] = 'G'; 
-    chordName[pos++] = CH_SH; 
+  case ROOT_GSHARP:  
+    *pos++ = 'G'; 
+    *pos++ = CH_SH; 
     break;
-  case ROOT_A:          
-    chordName[pos++] = 'A'; 
+  case ROOT_A:       
+    *pos++ = 'A'; 
     break;
-  case ROOT_ASHARP:     
-    chordName[pos++] = 'A'; 
-    chordName[pos++] = CH_SH; 
+  case ROOT_ASHARP:  
+    *pos++ = 'A'; 
+    *pos++ = CH_SH; 
     break;
-  case ROOT_B:          
-    chordName[pos++] = 'B'; 
+  case ROOT_B:       
+    *pos++ = 'B'; 
     break;
-  default:              
-    chordName[pos++] = '?'; 
+  default:           
+    *pos++ = '?'; 
     break;
   }
+}
+
+void getChordName(CHORD_TYPE chord, char *chordName)
+{
+  *chordName = 0;
+  if(CHORD_NONE == chord)
+    return;
+
+  int rootNote = (chord & ROOT_MASK);
+  char *pos = chordName;
+  getNoteName(rootNote, pos);
+
 
   //  byte octave = (chord>>12) & 0x0F;
   //  chordName[pos++] = '0' + octave: break;
@@ -243,41 +172,105 @@ void getChordName(CHORD_TYPE chord, char *chordName)
   case CHORD_MAJ:    
     break;
   case CHORD_MAJ7:   
-    chordName[pos++] = 'M'; 
-    chordName[pos++] = '7'; 
+    *pos++ = 'M'; 
+    *pos++ = '7'; 
     break;
   case CHORD_MIN7:   
-    chordName[pos++] = 'm'; 
-    chordName[pos++] = '7'; 
+    *pos++ = 'm'; 
+    *pos++ = '7'; 
     break;
   case CHORD_6:      
-    chordName[pos++] = '6'; 
+    *pos++ = '6'; 
     break;
   case CHORD_MIN6:   
-    chordName[pos++] = 'm'; 
-    chordName[pos++] = '6'; 
+    *pos++ = 'm'; 
+    *pos++ = '6'; 
     break;
   case CHORD_9:      
-    chordName[pos++] = '9';
+    *pos++ = '9';
     break;
   case CHORD_DIM:    
-    chordName[pos++] =  0b11011111;
+    *pos++ =  0b11011111;
     break;
   case CHORD_SUS4:   
-    chordName[pos++] = 's'; 
-    chordName[pos++] = '4';
+    *pos++ = 's'; 
+    *pos++ = '4';
     break;
   case CHORD_MIN:    
-    chordName[pos++] = 'm'; 
+    *pos++ = 'm'; 
     break;
   case CHORD_7:      
-    chordName[pos++] = '7'; 
+    *pos++ = '7'; 
     break;
   case CHORD_NONE:
     break;
   default:           
-    chordName[pos++] = '?'; 
+    *pos++ = '?'; 
     break;
+  }
+
+  int firstInversionRoot = 4;
+  int secondInversionRoot = 7;
+  switch(chord & CHORD_MASK)
+  {
+  case CHORD_MAJ:   
+    firstInversionRoot = 4; 
+    secondInversionRoot = 7; 
+    break;
+  case CHORD_MAJ7:  
+    firstInversionRoot = 4; 
+    secondInversionRoot = 7; 
+    break;
+  case CHORD_6:     
+    firstInversionRoot = 4; 
+    secondInversionRoot = 9; 
+    break;
+  case CHORD_9:     
+    firstInversionRoot = 4; 
+    secondInversionRoot = 7; 
+    break;
+  case CHORD_7:     
+    firstInversionRoot = 4; 
+    secondInversionRoot = 7; 
+    break;
+  case CHORD_MIN7:  
+    firstInversionRoot = 3; 
+    secondInversionRoot = 7; 
+    break; 
+  case CHORD_MIN6:  
+    firstInversionRoot = 3; 
+    secondInversionRoot = 9; 
+    break;
+  case CHORD_MIN:   
+    firstInversionRoot = 3; 
+    secondInversionRoot = 7; 
+    break;
+  case CHORD_DIM:   
+    firstInversionRoot = 3; 
+    secondInversionRoot = 6; 
+    break;
+  case CHORD_SUS4:  
+    firstInversionRoot = 5; 
+    secondInversionRoot = 7; 
+    break;            
+  }
+
+  switch(chord & INV_MASK)
+  {
+  case INV_FIRST:
+    rootNote += firstInversionRoot;
+    if(rootNote > ROOT_B)      
+      rootNote -= 12;
+    *pos++ = '/';
+    getNoteName(rootNote, pos);
+    break;        
+  case INV_SECOND:
+    rootNote += secondInversionRoot;
+    if(rootNote > ROOT_B)      
+      rootNote -= 12;
+    *pos++ = '/';
+    getNoteName(rootNote, pos);
+    break;        
   }
 
 };
@@ -313,7 +306,7 @@ byte determineChord(byte octave, CHORD_TYPE& chord)
   else if(ControlSurface.chordKey & CControlSurface::K_SUS4)      altChord = CHORD_SUS4;
   else if(ControlSurface.chordKey & CControlSurface::K_7TH)       altChord = CHORD_7;  
   else if(ControlSurface.chordKey & CControlSurface::K_MIN)       altChord = (chord & CHORD_MASK) == CHORD_MAJ ? CHORD_MIN:CHORD_MAJ;  
-  
+
 
 
   if(altChord != CHORD_NONE)
@@ -630,7 +623,8 @@ void loop() {
     renderNotesHeld();
     if(bChangeOfOctave)
     {
-      char msg[8] = { "Oct X" };
+      char msg[8] = { 
+        "Oct X"             };
       msg[4] = '0' + octave;
       Display.showRow(0, msg);
     }
@@ -638,9 +632,10 @@ void loop() {
     {
       Display.showRow(0, notesHeldText, 16);
     }
-    char chordName[17] = {0};
+    char chordName[17] = {
+      0        };
     getChordName(chord, chordName);
-      Display.showRow(1, chordName);
+    Display.showRow(1, chordName);
     //Display.showRow(1, notesHeldGraphic, 16);
   }  
 }
@@ -648,10 +643,12 @@ void loop() {
 
 /*
 
-  0123456789012345
-  0123456789012345
-  
-  octave
-  
-  
-*/
+ 0123456789012345
+ 0123456789012345
+ 
+ octave
+ 
+ 
+ */
+
+
