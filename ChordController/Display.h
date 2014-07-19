@@ -98,6 +98,9 @@ public:
         0b00000,
     };
     
+    delay(100);
+    lcd.begin(16, 2);
+    delay(100);
     lcd.createChar(CH_WU,    g_WU);
     lcd.createChar(CH_WD,    g_WD);
     lcd.createChar(CH_WU_BU, g_WU_BU);
@@ -105,18 +108,32 @@ public:
     lcd.createChar(CH_WD_BU, g_WD_BU);
     lcd.createChar(CH_WD_BD, g_WD_BD);
     lcd.createChar(CH_SH,    g_SH);
-    delay(1);
-    lcd.begin(16, 2);
-    delay(1);
+    delay(100);
   }
 
-  void show(int col, int row, char *s, int len)
+  void showRow(int row, char *s, int len)
   {
-     lcd.setCursor(col, row);
+     lcd.setCursor(0, row);
      while(len--)
      {
        lcd.print(*s); 
        ++s;
+     }
+  }  
+  void showRow(int row, char *s)
+  {
+     lcd.setCursor(0, row);
+     for(int i=0; i<16; ++i)
+     {
+       if(*s)
+       {
+         lcd.print(*s); 
+         ++s;         
+       }
+       else
+       {
+         lcd.print(' '); 
+       }
      }
   }  
   

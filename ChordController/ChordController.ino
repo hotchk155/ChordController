@@ -7,6 +7,7 @@
 #include "ControlSurface.h"
 #include "Display.h"
 
+#define P_LED 13
 #define MIN_OCTAVE 0
 #define MAX_OCTAVE 8
 
@@ -39,11 +40,6 @@ void midiNote(byte chan, byte note, byte vel)
   Serial.write(note&0x7F); 
   Serial.write(vel&0x7f);
 }
-
-
-
-
-
 
 //////////////////////////////////////////////////////////////////
 byte determineChord(byte octave, CHORD_TYPE& chord)
@@ -318,8 +314,12 @@ void renderNotesHeld()
 }
 
 
+byte heartbeat = 0;
+unsigned long nextHeartbeat;
 void setup() 
 {
+  pinMode(P_LED,OUTPUT);
+  nextHeartbeat = 0;
   // set up the LCD's number of columns and rows: 
   octave = 3;
   ControlSurface.setup();
@@ -328,12 +328,26 @@ void setup()
   midiSetup();
   memset(noteHeld, 0, sizeof noteHeld);
   renderNotesHeld();
-  Display.showRow(0, notesHeldText, 16);
+  Display.showRow(0, "--== MIDIOT ==--");
   Display.showRow(1, notesHeldGraphic, 16);
+  ControlSurface.setLED(0, 1);
+  ControlSurface.setLED(1, 1);
+  ControlSurface.setLED(2, 1);
+  delay(500);
+  ControlSurface.setLED(0, 0);
+  ControlSurface.setLED(1, 0);
+  ControlSurface.setLED(2, 0);
 }
 
 void loop() {
   unsigned long milliseconds = millis();
+  if(milliseconds > nextHeartbeat)
+  {
+    heartbeat = !heartbeat;
+    digitalWrite(P_LED, heartbeat);
+    nextHeartbeat = milliseconds + 500;
+  }
+
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
   if(ControlSurface.scan(milliseconds))
@@ -343,15 +357,15 @@ void loop() {
     switch(ControlSurface.commandKey)
     {
       case CControlSurface::K_OCT_DOWN:
-      if(octave > MIN_OCTAVE)
-        --octave;
-      bChangeOfOctave = 1;
-      break;
+        if(octave > MIN_OCTAVE)
+          --octave;
+        bChangeOfOctave = 1;                                                                         
+        break;
       case CControlSurface::K_OCT_UP:
-      if(octave < MAX_OCTAVE)
-        ++octave;
-      bChangeOfOctave = 1;
-      break;
+        if(octave < MAX_OCTAVE)
+          ++octave;
+        bChangeOfOctave = 1;
+        break;
     }
 
     CHORD_TYPE chord;    
@@ -372,7 +386,6 @@ void loop() {
       Display.showRow(0, notesHeldText, 16);
     }
     Display.showRow(1, notesHeldGraphic, 16);
-
   }  
 }
 

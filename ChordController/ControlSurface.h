@@ -3,8 +3,8 @@
 
 class CControlSurface
 {
-  unsigned long scanResult;
   unsigned long debounceTime;
+  unsigned long scanResult;
   
 public:  
   unsigned long rootKey;
@@ -202,6 +202,55 @@ public:
       
     scanResult = result;
     return 1;        
+  }
+  
+  
+  char *getKeyName()
+  {
+    switch(scanResult)
+    {
+      case 0: return "";
+      case K_UP: return "up";
+      case K_DOWN: return "down";
+      case K_MODE: return "mode";
+      case K_SPARE: return "sp";
+      case K_INV1: return "inv1";
+      case K_MAJ7: return "maj7";
+      case K_MIN7: return "min7";
+      case K_6TH: return "6";
+      case K_MIN6: return "min6";
+      case K_9TH: return "9";
+      case K_DIM: return "dim";
+      case K_SUS4: return "sus4";
+      case K_MIN: return "min";
+      case K_7TH: return "7";
+      case K_INV2: return "inv2";
+      case K_OCT_DOWN: return "oct dn";
+      case K_C: return "c";
+      case K_CSHARP: return "c#";
+      case K_D: return "d";
+      case K_DSHARP: return "d#";
+      case K_E: return "e";
+      case K_F: return "f";
+      case K_FSHARP: return "f#";
+      case K_G: return "g";
+      case K_GSHARP: return "g#";
+      case K_A: return "a";
+      case K_ASHARP: return "a#";
+      case K_B: return "b";
+      case K_OCT_UP: return "oct+";
+      default: return "?";
+    }
+  }
+  
+  void setLED(int which, int status)
+  {
+    switch(which)
+    {
+      case 0: digitalWrite(P_LED0, !!status); break;
+      case 1: digitalWrite(P_LED1, !!status); break;
+      case 2: digitalWrite(P_LED2, !!status); break;
+    }
   }
 };
 
