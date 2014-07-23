@@ -4,80 +4,45 @@
 #include <LiquidCrystal.h>
 
 #include "ChordController.h"
+#include "ChordSelection.h"
 #include "ControlSurface.h"
 #include "Display.h"
 
 #define P_LED 13
-#define MIN_OCTAVE 0
-#define MAX_OCTAVE 8
-
-CControlSurface ControlSurface;
-CDisplay        Display;
 byte noteHeld[130];
-byte octave;
-
 char notesHeldText[30];
 char notesHeldGraphic[30];
 
-CHORD_TYPE  noteButtons[12];
 
-
-byte major[12] = { 
-  CHORD_MAJ,   // i
-  CHORD_MIN, 
-  CHORD_MIN,   // ii
-  CHORD_MAJ, 
-  CHORD_MIN,   // iii
-  CHORD_MAJ,   // iv
-  CHORD_DIM, 
-  CHORD_MAJ,   // v
-  CHORD_MAJ, 
-  CHORD_MIN,   // vi
-  CHORD_MAJ, 
-  CHORD_DIM    // vii
-};
-
-byte minor[12] = { 
-  CHORD_MIN,   // i
-  CHORD_MAJ, 
-  CHORD_DIM,   // ii
-  CHORD_MAJ,   // iii
-  CHORD_MIN, 
-  CHORD_MIN,   // iv
-  CHORD_DIM, 
-  CHORD_MIN,   // v
-  CHORD_MAJ,   // vi
-  CHORD_MIN, 
-  CHORD_MAJ,   // vii
-  CHORD_MAJ 
-};
-
-
-void setChordButtonsMajorTransposed(int scaleRoot)
-{  
-  for(int i=0; i<12; ++i)
-  {
-    noteButtons[i] = scaleRoot | major[i];  
-    if(++scaleRoot > ROOT_B)
-      scaleRoot = ROOT_C;
-  }
-}
-
-/////////////////////////////////////////////////////////////////
-// Set up the chord buttons for a MINOR mode
-// The first parameter is the root note applied to the first button
-// The second parameter defines the musical key (minor)
-void setChordButtonsMinorTransposed(int scaleRoot)
+enum 
 {
-  int order[12] = {
-    0,1,2,4,3,5,6,7,9,8,11,10    };
-  for(int i=0; i<12; ++i)
-  {
-    noteButtons[order[i]] = scaleRoot | minor[i];  
-    if(++scaleRoot > ROOT_B)
-      scaleRoot = ROOT_C;
-  }
-}
+  CMD_MODE,
+  CMD_FRE,
+  CMD_KEY,
+  CMD_FAM,
+  CMD_HOLD
+};
+
+
+enum 
+{ 
+  DISP_CALC,        // chord calculator mode
+  DISP_LIST,        // chord list mode
+
+  DISP_MODE         // mode screen
+};
+
+byte displayMode = DISP_LIST;
+byte chordDisplayMode = DISP_LIST;
+byte isModePressed = 0;
+byte repaint = 0;
+
+CControlSurface ControlSurface;
+CDisplay        Display;
+CChordSelection ChordSelection;
+
+
+
 
 
 //////////////////////////////////////////////////////////////////
@@ -148,6 +113,21 @@ void getNoteName(int note, char*&pos)
     *pos++ = 'B'; 
     break;
   default:           
+    *pos++ = '?'; 
+    break;
+  }
+}
+
+void getKeyTypeSuffix(int keyType, char*&pos)
+{
+  switch(keyType)
+  {
+    case CChordSelection::KEY_MAJOR:
+    break;
+    case CChordSelection::KEY_MINOR:
+    *pos++ = 'm'; 
+    break;
+  default:
     *pos++ = '?'; 
     break;
   }
@@ -276,52 +256,53 @@ void getChordName(CHORD_TYPE chord, char *chordName)
 };
 
 
+/*
 //////////////////////////////////////////////////////////////////
-byte determineChord(byte octave, CHORD_TYPE& chord)
-{
-
-  chord = CHORD_NONE;
-
-  if(ControlSurface.rootKey & CControlSurface::K_C)               chord = noteButtons[0];
-  else if(ControlSurface.rootKey & CControlSurface::K_CSHARP)     chord = noteButtons[1];
-  else if(ControlSurface.rootKey & CControlSurface::K_D)          chord = noteButtons[2];
-  else if(ControlSurface.rootKey & CControlSurface::K_DSHARP)     chord = noteButtons[3];
-  else if(ControlSurface.rootKey & CControlSurface::K_E)          chord = noteButtons[4];
-  else if(ControlSurface.rootKey & CControlSurface::K_F)          chord = noteButtons[5];
-  else if(ControlSurface.rootKey & CControlSurface::K_FSHARP)     chord = noteButtons[6];
-  else if(ControlSurface.rootKey & CControlSurface::K_G)          chord = noteButtons[7];
-  else if(ControlSurface.rootKey & CControlSurface::K_GSHARP)     chord = noteButtons[8];
-  else if(ControlSurface.rootKey & CControlSurface::K_A)          chord = noteButtons[9];
-  else if(ControlSurface.rootKey & CControlSurface::K_ASHARP)     chord = noteButtons[10];
-  else if(ControlSurface.rootKey & CControlSurface::K_B)          chord = noteButtons[11];  
-  else return 0;
-
-  byte altChord = CHORD_NONE;
-  if(ControlSurface.chordKey & CControlSurface::K_MAJ7)           altChord = CHORD_MAJ7;
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN7)      altChord = CHORD_MIN7;
-  else if(ControlSurface.chordKey & CControlSurface::K_6TH)       altChord = CHORD_6;
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN6)      altChord = CHORD_MIN6;
-  else if(ControlSurface.chordKey & CControlSurface::K_9TH)       altChord = CHORD_9;
-  else if(ControlSurface.chordKey & CControlSurface::K_DIM)       altChord = CHORD_DIM;
-  else if(ControlSurface.chordKey & CControlSurface::K_SUS4)      altChord = CHORD_SUS4;
-  else if(ControlSurface.chordKey & CControlSurface::K_7TH)       altChord = CHORD_7;  
-  else if(ControlSurface.chordKey & CControlSurface::K_MIN)       altChord = (chord & CHORD_MASK) == CHORD_MAJ ? CHORD_MIN:CHORD_MAJ;  
-
-
-
-  if(altChord != CHORD_NONE)
-  {
-    chord &= ~CHORD_MASK;
-    chord |= altChord;
-  }
-
-  if(ControlSurface.inversionKey & CControlSurface::K_INV1)       chord |= INV_FIRST;
-  else if (ControlSurface.inversionKey & CControlSurface::K_INV2) chord |= INV_SECOND;
-
-  chord |= ((unsigned long)octave)<<12;
-  return 1;
-}
-
+ byte determineChord(byte octave, CHORD_TYPE& chord)
+ {
+ 
+ chord = CHORD_NONE;
+ 
+ if(ControlSurface.rootKey & CControlSurface::K_C)               chord = noteButtons[0];
+ else if(ControlSurface.rootKey & CControlSurface::K_CSHARP)     chord = noteButtons[1];
+ else if(ControlSurface.rootKey & CControlSurface::K_D)          chord = noteButtons[2];
+ else if(ControlSurface.rootKey & CControlSurface::K_DSHARP)     chord = noteButtons[3];
+ else if(ControlSurface.rootKey & CControlSurface::K_E)          chord = noteButtons[4];
+ else if(ControlSurface.rootKey & CControlSurface::K_F)          chord = noteButtons[5];
+ else if(ControlSurface.rootKey & CControlSurface::K_FSHARP)     chord = noteButtons[6];
+ else if(ControlSurface.rootKey & CControlSurface::K_G)          chord = noteButtons[7];
+ else if(ControlSurface.rootKey & CControlSurface::K_GSHARP)     chord = noteButtons[8];
+ else if(ControlSurface.rootKey & CControlSurface::K_A)          chord = noteButtons[9];
+ else if(ControlSurface.rootKey & CControlSurface::K_ASHARP)     chord = noteButtons[10];
+ else if(ControlSurface.rootKey & CControlSurface::K_B)          chord = noteButtons[11];  
+ else return 0;
+ 
+ byte altChord = CHORD_NONE;
+ if(ControlSurface.chordKey & CControlSurface::K_MAJ7)           altChord = CHORD_MAJ7;
+ else if(ControlSurface.chordKey & CControlSurface::K_MIN7)      altChord = CHORD_MIN7;
+ else if(ControlSurface.chordKey & CControlSurface::K_6TH)       altChord = CHORD_6;
+ else if(ControlSurface.chordKey & CControlSurface::K_MIN6)      altChord = CHORD_MIN6;
+ else if(ControlSurface.chordKey & CControlSurface::K_9TH)       altChord = CHORD_9;
+ else if(ControlSurface.chordKey & CControlSurface::K_DIM)       altChord = CHORD_DIM;
+ else if(ControlSurface.chordKey & CControlSurface::K_SUS4)      altChord = CHORD_SUS4;
+ else if(ControlSurface.chordKey & CControlSurface::K_7TH)       altChord = CHORD_7;  
+ else if(ControlSurface.chordKey & CControlSurface::K_MIN)       altChord = (chord & CHORD_MASK) == CHORD_MAJ ? CHORD_MIN:CHORD_MAJ;  
+ 
+ 
+ 
+ if(altChord != CHORD_NONE)
+ {
+ chord &= ~CHORD_MASK;
+ chord |= altChord;
+ }
+ 
+ if(ControlSurface.inversionKey & CControlSurface::K_INV1)       chord |= INV_FIRST;
+ else if (ControlSurface.inversionKey & CControlSurface::K_INV2) chord |= INV_SECOND;
+ 
+ chord |= ((unsigned long)octave)<<12;
+ return 1;
+ }
+ */
 //////////////////////////////////////////////////////////////////
 int buildChord(CHORD_TYPE chord, byte *notes)
 {
@@ -557,6 +538,199 @@ void renderNotesHeld()
 }
 
 
+void copyChars(char * dest, char *src)
+{
+  while(*src)
+    *dest++=*src++;
+}
+////////////////////////////////////////
+//  0123456789012345
+// 0FAM    
+// 1F#m Oct4
+//
+void showMode()
+{
+  char row1[16];
+  char row2[16];
+  memset(row1, ' ', 16);
+  memset(row2, ' ', 16);
+  char *pch = row2;
+  switch(ChordSelection.getChordLayout())
+  {
+    case CChordSelection::LAYOUT_FREE:
+    copyChars(&row1[0], "Fre");
+    copyChars(&row2[0], "---");
+    break;
+    case CChordSelection::LAYOUT_KEY_SIGNATURE:
+    copyChars(&row1[0], "Key");
+    getNoteName(ChordSelection.getScaleRoot(), pch);
+    getKeyTypeSuffix(ChordSelection.getKeyType(), pch);
+    break;
+    case CChordSelection::LAYOUT_CHORD_FAMILY:
+    copyChars(&row1[0], "Fam");
+    getNoteName(ChordSelection.getScaleRoot(), pch);
+    getKeyTypeSuffix(ChordSelection.getKeyType(), pch);
+    break;
+  default:
+    copyChars(&row1[0], "???");
+    break;
+  }
+  copyChars(&row2[4], "Oct");
+  row2[7] = '0' + ChordSelection.getOctaveSelection();
+
+  if(ChordSelection.getHoldMode())
+    copyChars(&row1[4], "Hold");
+  
+  Display.showRow(0, row1);
+  Display.showRow(1, row2);
+}
+
+void onCommand(int which, boolean isPress)
+{
+  repaint = isPress;  
+  switch(which)
+  {
+  case CMD_MODE: 
+    isModePressed = isPress; 
+    repaint = 1; 
+    break;
+  case CMD_FRE:
+    ChordSelection.setChordLayout(CChordSelection::LAYOUT_FREE); 
+    break;
+  case CMD_KEY:
+    if(ChordSelection.getChordLayout() == CChordSelection::LAYOUT_KEY_SIGNATURE)
+      ChordSelection.onKeyTypeButton(which, isPress);
+    else
+      ChordSelection.setChordLayout(CChordSelection::LAYOUT_KEY_SIGNATURE); 
+    break;
+  case CMD_FAM:
+    if(ChordSelection.getChordLayout() == CChordSelection::LAYOUT_CHORD_FAMILY)
+      ChordSelection.onKeyTypeButton(which, isPress);
+    else
+      ChordSelection.setChordLayout(CChordSelection::LAYOUT_CHORD_FAMILY);
+    break;
+  case CMD_HOLD: 
+    ChordSelection.toggleHoldMode(); 
+    break;
+  }
+}
+
+////////////////////////////////////////
+void onKeyEvent(unsigned long which, boolean isPress)
+{
+  switch(which)
+  {
+    case CControlSurface::K_UP: 
+    break;
+    case CControlSurface::K_DOWN: 
+    break;
+    case CControlSurface::K_SPARE: 
+    break;
+    case CControlSurface::K_MODE:     
+    onCommand(CMD_MODE, isPress); 
+    break;      
+    case CControlSurface::K_OCT_DOWN: 
+    ChordSelection.onOctaveButton(-1, isPress); 
+    break;
+    case CControlSurface::K_OCT_UP:   
+    ChordSelection.onOctaveButton(+1, isPress); 
+    break;
+    case CControlSurface::K_INV1:     
+    if(isModePressed) onCommand(CMD_FRE, isPress); 
+    else ChordSelection.onInversionButton(1, isPress); 
+    break;
+    case CControlSurface::K_CHORD0:   
+    if(isModePressed) onCommand(CMD_KEY, isPress); 
+    else ChordSelection.onChordButton(0, isPress); 
+    break;
+    case CControlSurface::K_CHORD1:   
+    if(isModePressed) onCommand(CMD_FAM, isPress); 
+    else ChordSelection.onChordButton(1, isPress); 
+    break;
+    case CControlSurface::K_CHORD2:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(2, isPress); 
+    break;
+    case CControlSurface::K_CHORD3:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(3, isPress); 
+    break;
+    case CControlSurface::K_CHORD4:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(4, isPress); 
+    break;
+    case CControlSurface::K_CHORD5:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(5, isPress); 
+    break;
+    case CControlSurface::K_CHORD6:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(6, isPress); 
+    break;
+    case CControlSurface::K_CHORD7:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(7, isPress); 
+    break;
+    case CControlSurface::K_CHORD8:   
+    if(isModePressed) onCommand(CMD_HOLD, isPress); 
+    else ChordSelection.onChordButton(8, isPress); 
+    break;
+    case CControlSurface::K_INV2:     
+    if(isModePressed) ; 
+    else ChordSelection.onInversionButton(2, isPress); 
+    break;
+    case CControlSurface::K_NOTE0:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_C, isPress); repaint=1; }
+    else ChordSelection.onNoteButton(0, isPress); 
+    break;
+    case CControlSurface::K_NOTE1:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_CSHARP, isPress); repaint=1; }
+    ChordSelection.onNoteButton(1, isPress); 
+    break;
+    case CControlSurface::K_NOTE2:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_D, isPress); repaint=1; }
+    ChordSelection.onNoteButton(2, isPress); 
+    break;
+    case CControlSurface::K_NOTE3:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_DSHARP, isPress); repaint=1; }
+    ChordSelection.onNoteButton(3, isPress); 
+    break;
+    case CControlSurface::K_NOTE4:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_E, isPress); repaint=1; }
+    ChordSelection.onNoteButton(4, isPress); 
+    break;
+    case CControlSurface::K_NOTE5:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_F, isPress); repaint=1; }
+    ChordSelection.onNoteButton(5, isPress);
+    break;
+    case CControlSurface::K_NOTE6:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_FSHARP, isPress); repaint=1; }
+    ChordSelection.onNoteButton(6, isPress); 
+    break;
+    case CControlSurface::K_NOTE7:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_G, isPress); repaint=1; }
+    ChordSelection.onNoteButton(7, isPress); 
+    break;
+    case CControlSurface::K_NOTE8:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_GSHARP, isPress); repaint=1; }
+    ChordSelection.onNoteButton(8, isPress); 
+    break;
+    case CControlSurface::K_NOTE9:    
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_A, isPress); repaint=1; }
+    ChordSelection.onNoteButton(9, isPress); 
+    break;
+    case CControlSurface::K_NOTE10:   
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_ASHARP, isPress); repaint=1; }
+    ChordSelection.onNoteButton(10, isPress); 
+    break;
+    case CControlSurface::K_NOTE11:   
+    if(isModePressed) { ChordSelection.onKeyModeButton(ROOT_B, isPress); repaint=1; }
+    ChordSelection.onNoteButton(11, isPress); 
+    break;
+  }
+}
+
+
 byte heartbeat = 0;
 unsigned long nextHeartbeat;
 void setup() 
@@ -564,8 +738,8 @@ void setup()
   pinMode(P_LED,OUTPUT);
   nextHeartbeat = 0;
   // set up the LCD's number of columns and rows: 
-  octave = 3;
-  ControlSurface.setup();
+
+  ControlSurface.setup(onKeyEvent);
   Display.setup();
   delay(1);
   midiSetup();
@@ -581,11 +755,18 @@ void setup()
   ControlSurface.setLED(1, 0);
   ControlSurface.setLED(2, 0);
 
-  setChordButtonsMajorTransposed(ROOT_D);
+  ChordSelection.layoutChordButtons();
+  ChordSelection.layoutNoteButtons(ROOT_C, CChordSelection::KEY_MAJOR, CChordSelection::LAYOUT_FREE);
+
+  isModePressed = 0;
+  repaint = 0;
+
 
 }
 
+
 void loop() {
+
   unsigned long milliseconds = millis();
   if(milliseconds > nextHeartbeat)
   {
@@ -596,48 +777,58 @@ void loop() {
 
   // set the cursor to column 0, line 1
   // (note: line 1 is the second row, since counting begins with 0):
-  if(ControlSurface.scan(milliseconds))
+  ControlSurface.run(milliseconds);
+
+  if(isModePressed)
   {
-
-    byte bChangeOfOctave = 0;
-    switch(ControlSurface.commandKey)
+    if(repaint)
     {
-      case CControlSurface::K_OCT_DOWN:
-      if(octave > MIN_OCTAVE)
-        --octave;
-      bChangeOfOctave = 1;                                                                         
-      break;
-      case CControlSurface::K_OCT_UP:
-      if(octave < MAX_OCTAVE)
-        ++octave;
-      bChangeOfOctave = 1;
-      break;
+      showMode();
     }
-
-    CHORD_TYPE chord;    
-    determineChord(octave, chord);
-    byte notes[20];
-    int len = buildChord(chord, notes);
-    playChord(notes, len);    
-
-    renderNotesHeld();
-    if(bChangeOfOctave)
-    {
-      char msg[8] = { 
-        "Oct X"             };
-      msg[4] = '0' + octave;
-      Display.showRow(0, msg);
-    }
-    else
-    {
-      Display.showRow(0, notesHeldText, 16);
-    }
-    char chordName[17] = {
-      0        };
-    getChordName(chord, chordName);
-    Display.showRow(1, chordName);
-    //Display.showRow(1, notesHeldGraphic, 16);
   }  
+  else if(repaint || ChordSelection.isChanged())
+  {
+    CHORD_TYPE chord = ChordSelection.getChordSelection();
+    char chordName[16] = {
+      0    };
+    getChordName(chord, chordName);
+    Display.showRow(0, chordName);
+    Display.showRow(1, "");
+
+    /*    byte notes[20];
+     int len = buildChord(chord, notes);
+     playChord(notes, len);    
+     renderNotesHeld();
+     Display.showRow(0, notesHeldText, 16);
+     Display.showRow(1, notesHeldGraphic);            */
+  }
+
+  /*
+  if(repaint)
+   {
+   renderNotesHeld();
+   switch(displayMode)
+   {
+   case DISP_CALC:
+   {
+   Display.showRow(0, notesHeldText, 16);
+   Display.showRow(1, notesHeldGraphic);        
+   }
+   break;
+   case DISP_LIST:
+   {
+   char chordName[17] = {
+   0                };
+   getChordName(chord, chordName);
+   Display.showRow(0, notesHeldText, 16);
+   Display.showRow(1, chordName);        
+   }
+   break;
+   case DISP_MODE:
+   showMode();      
+   break;
+   }
+   }*/
 }
 
 
@@ -650,5 +841,7 @@ void loop() {
  
  
  */
+
+
 
 

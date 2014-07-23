@@ -1,17 +1,18 @@
 #ifndef __CONTROLSURFACE_H__
 #define __CONTROLSURFACE_H__
 
+typedef void (*KeyHandlerFunc)(unsigned long which, boolean isPress);
+
 class CControlSurface
 {
   unsigned long debounceTime;
-  unsigned long scanResult;
   
 public:  
-  unsigned long rootKey;
-  unsigned long chordKey;
-  unsigned long inversionKey;
-  unsigned long commandKey;
+  unsigned long keyStatus;
 
+
+  KeyHandlerFunc pfnOnKeyEvent;
+  
   enum {
     DEBOUNCE_PERIOD = 20 //ms
   };
@@ -39,46 +40,40 @@ public:
   enum {  
     K_UP      = 0x10000000UL,
     K_DOWN    = 0x04000000UL,
-    K_MODE    = 0x08000000UL,
-    K_SPARE   = 0x02000000UL,
+    K_SPARE    = 0x08000000UL,
+    K_MODE   = 0x02000000UL,
 
     K_INV1    = 0x00008000UL,
-    K_MAJ7    = 0x00004000UL,
-    K_MIN7    = 0x00800000UL,
-    K_6TH     = 0x00400000UL,
-    K_MIN6    = 0x00200000UL,
-    K_9TH     = 0x00100000UL,
-    K_DIM     = 0x00080000UL,
-    K_SUS4    = 0x00040000UL,
-    K_MIN     = 0x00020000UL,
-    K_7TH     = 0x00010000UL,
+    K_CHORD0  = 0x00004000UL,
+    K_CHORD1  = 0x00800000UL,
+    K_CHORD2  = 0x00400000UL,
+    K_CHORD3  = 0x00200000UL,
+    K_CHORD4  = 0x00100000UL,
+    K_CHORD5  = 0x00080000UL,
+    K_CHORD6  = 0x00040000UL,
+    K_CHORD7  = 0x00020000UL,
+    K_CHORD8  = 0x00010000UL,
     K_INV2    = 0x01000000UL,
 
     K_OCT_DOWN= 0x00000080UL,
-    K_C       = 0x00000040UL,
-    K_CSHARP  = 0x00002000UL,
-    K_D       = 0x00000020UL,
-    K_DSHARP  = 0x00001000UL,
-    K_E       = 0x00000010UL,
-    K_F       = 0x00000008UL,
-    K_FSHARP  = 0x00000800UL,
-    K_G       = 0x00000004UL,
-    K_GSHARP  = 0x00000400UL,
-    K_A       = 0x00000002UL,
-    K_ASHARP  = 0x00000200UL,
-    K_B       = 0x00000001UL,
-    K_OCT_UP  = 0x00000100UL,
-    
-    K_ROOT_MASK     = (K_C|K_CSHARP|K_D|K_DSHARP|K_E|K_F|K_FSHARP|K_G|K_GSHARP|K_A|K_ASHARP|K_B),
-    K_CHORD_MASK    = (K_MAJ7|K_MIN7|K_6TH|K_MIN6|K_9TH|K_DIM|K_SUS4|K_MIN|K_7TH),
-    K_INV_MASK      = (K_INV1|K_INV2),
-    K_COMMAND_MASK  = (K_UP|K_DOWN|K_MODE|K_SPARE|K_OCT_DOWN|K_OCT_UP)
-    
+    K_NOTE0   = 0x00000040UL,
+    K_NOTE1   = 0x00002000UL,
+    K_NOTE2   = 0x00000020UL,
+    K_NOTE3   = 0x00001000UL,
+    K_NOTE4   = 0x00000010UL,
+    K_NOTE5   = 0x00000008UL,
+    K_NOTE6   = 0x00000800UL,
+    K_NOTE7   = 0x00000004UL,
+    K_NOTE8   = 0x00000400UL,
+    K_NOTE9   = 0x00000002UL,
+    K_NOTE10  = 0x00000200UL,
+    K_NOTE11  = 0x00000001UL,
+    K_OCT_UP  = 0x00000100UL,        
   };
 
   
   /////////////////////////////////////////////////////////////////////
-  void setup()
+  void setup(KeyHandlerFunc onKeyEvent)
   {
       pinMode(P_SCAN0, OUTPUT);
       pinMode(P_SCAN1, OUTPUT);
@@ -102,20 +97,17 @@ public:
       digitalWrite(P_LED1, LOW);
       digitalWrite(P_LED2, LOW);
     
-      scanResult = 0;
-      rootKey = 0;
-      chordKey = 0;
-      inversionKey = 0;
-      commandKey = 0;
-      debounceTime = 0;
+      keyStatus = 0;
+      debounceTime = 0;      
+      pfnOnKeyEvent = onKeyEvent;
   }
   
   /////////////////////////////////////////////////////////////////////  
-  int scan(unsigned long milliseconds)
+  void run(unsigned long milliseconds)
   {
     // check if still in debounce period
     if(milliseconds && debounceTime > milliseconds)
-      return 0;      
+      return;      
           
     // perform the raw scan to see which keys are pressed
     unsigned long result = 0;
@@ -156,58 +148,31 @@ public:
     digitalWrite(P_SCAN7, LOW); 
   
     // nothing changed
-    if(result == scanResult)
-      return 0;
-      
-    // find out which keys have been 
-    unsigned long delta = result ^ scanResult;
-    unsigned long newPressed = result & delta;
-    if(newPressed)
-      debounceTime = milliseconds + DEBOUNCE_PERIOD;           
+    if(result == keyStatus)
+      return;
+
     
-    // Key logic
-    // For each category; root note buttons, chord buttons, inversions...
-    // a) If a button is pressed, it becomes the "current" selection
-    // b) When the current selection is released, any remaining pressed button 
-    //    becomes the current selection
-    //
-    if(delta & K_ROOT_MASK)
+    // find out which key states have changed
+    unsigned long delta = result ^ keyStatus;
+    if(result & delta)
+      debounceTime = milliseconds + DEBOUNCE_PERIOD;           
+    keyStatus = result;
+    unsigned long b = 0x80000000UL;
+    while(b)
     {
-      if(newPressed & K_ROOT_MASK)
-        rootKey = (newPressed & K_ROOT_MASK);
-      else if(!(rootKey & result))
-        rootKey = (result & K_ROOT_MASK);;
-    }
-    if(delta & K_CHORD_MASK)
-    {
-      if(newPressed & K_CHORD_MASK)
-         chordKey = (newPressed & K_CHORD_MASK);
-      else if(!(chordKey & result))
-         chordKey = (result & K_CHORD_MASK);
-    }
-    if(delta & K_INV_MASK)
-    {
-      if(newPressed & K_INV_MASK)
-        inversionKey = (newPressed & K_INV_MASK);
-      else if(!(inversionKey & result))
-        inversionKey = (result & K_INV_MASK);
-    }
-    if(delta & K_COMMAND_MASK)
-    {
-      if(newPressed & K_COMMAND_MASK)
-        commandKey = (newPressed & K_COMMAND_MASK);
-      else 
-        commandKey = 0;
-    }
-      
-    scanResult = result;
-    return 1;        
+      if(delta & b)
+      {
+        if(pfnOnKeyEvent) 
+            pfnOnKeyEvent(b, !!(result&b));
+      }
+      b>>=1;
+    }    
   }
   
-  
+/*  
   char *getKeyName()
   {
-    switch(scanResult)
+    switch(keyStatus)
     {
       case 0: return "";
       case K_UP: return "up";
@@ -242,7 +207,7 @@ public:
       default: return "?";
     }
   }
-  
+*/  
   void setLED(int which, int status)
   {
     switch(which)

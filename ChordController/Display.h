@@ -111,7 +111,7 @@ public:
     delay(100);
   }
 
-  void showRow(int row, char *s, int len)
+  void showRow(int row, const char *s, int len)
   {
      lcd.setCursor(0, row);
      while(len--)
@@ -120,7 +120,7 @@ public:
        ++s;
      }
   }  
-  void showRow(int row, char *s)
+  void showRow(int row, const char *s)
   {
      lcd.setCursor(0, row);
      for(int i=0; i<16; ++i)
