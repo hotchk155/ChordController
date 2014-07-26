@@ -121,7 +121,7 @@ public:
     inversionType = INV_NONE;
     memset(noteButtons,0,sizeof noteButtons);
     memset(chordButtons,0,sizeof chordButtons);
-    isHoldMode = 1;  
+    isHoldMode = 0;  
     changeOfChord = 0;
     currentNoteButton = -1;
     currentChordButton = -1;
@@ -137,6 +137,8 @@ public:
   // Return the selected chord
   CHORD_TYPE getChordSelection()
   {
+    if(CHORD_NONE == chordSelection)
+      return CHORD_NONE;      
     return (((CHORD_TYPE)octaveSelection)<<12) | inversionType | chordSelection;
   }
 
@@ -176,7 +178,7 @@ public:
       else if(LAYOUT_CHORD_FAMILY == layout)
       {
         if(KEY_MINOR == keyType)
-          noteButtons[noteButtons[order[i]]] = root | getChordTypeMinorKey(i);  
+          noteButtons[order[i]] = root | getChordTypeMinorKey(i);  
         else
           noteButtons[i] = root | getChordTypeMajorKey(i);  
       }
@@ -344,20 +346,20 @@ public:
 
   /////////////////////////////////////////////////////////////////////
   // Handler for when an inversion is selected
-  void onOctaveButton(int which, int isPress)  
+  void upOctave()  
   {
-    if(isPress)
+    if(octaveSelection < MAX_OCTAVE)
     {
-      if(which>0 && octaveSelection < MAX_OCTAVE)
-      {
-        ++octaveSelection;
-        changeOfChord = 1;        
-      }
-      else if(which<0 && octaveSelection > MIN_OCTAVE)
-      {
-        --octaveSelection;
-        changeOfChord = 1;        
-      }
+      ++octaveSelection;
+      changeOfChord = 1;        
+    }
+  }
+  void downOctave()  
+  {
+    if(octaveSelection > MIN_OCTAVE)
+    {
+      --octaveSelection;
+      changeOfChord = 1;        
     }
   }
 
@@ -369,52 +371,57 @@ public:
   }
 
   /////////////////////////////////////////////////////////////////////
-  void onKeyTypeButton(byte which, byte isPress)
-  {
-    if(isPress)
-    {
-      int k = keyType + 1;
-      if(k>=KEY_MAX)
-        k = 0;
-      setKeyType(k);
-    }
-  }
-
   void toggleHoldMode()  
   {
     isHoldMode = !isHoldMode;
   }
+  /////////////////////////////////////////////////////////////////////
   byte getHoldMode()
   {
     return isHoldMode;
   }
+  /////////////////////////////////////////////////////////////////////
   char  getOctaveSelection()
   {
     return octaveSelection;
   }
+  /////////////////////////////////////////////////////////////////////
   void setScaleRoot(byte r)
   {
     if(r != scaleRoot)
       layoutNoteButtons(r, keyType, chordLayout);
   }
+  /////////////////////////////////////////////////////////////////////
   byte getScaleRoot()
   {
     return scaleRoot;
   }
+  /////////////////////////////////////////////////////////////////////
   void setKeyType(byte k)
   {
     if(k != keyType)
       layoutNoteButtons(scaleRoot, k, chordLayout);
   }
+  /////////////////////////////////////////////////////////////////////
+  void toggleKeyType()
+  {
+    int k = keyType + 1;
+    if(k>=KEY_MAX)
+      k = 0;
+    setKeyType(k);
+  }
+  /////////////////////////////////////////////////////////////////////
   byte getKeyType()
   {
     return keyType;
   }
+  /////////////////////////////////////////////////////////////////////
   void setChordLayout(byte l)
   {
     if(l != chordLayout)
       layoutNoteButtons(scaleRoot, keyType, l);
   }
+  /////////////////////////////////////////////////////////////////////
   byte getChordLayout()
   {
     return chordLayout;

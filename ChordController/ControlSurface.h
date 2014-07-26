@@ -14,7 +14,7 @@ public:
   KeyHandlerFunc pfnOnKeyEvent;
   
   enum {
-    DEBOUNCE_PERIOD = 20 //ms
+    DEBOUNCE_PERIOD = 50 //ms
   };
   
   // define the pins used to scan the keyboard
