@@ -6,9 +6,10 @@ class CChordBuffer
 {
   CHORD_TYPE buffer[MAX_CHORD_BUFFER];
   int current;
-  int count;
+//  int count;
   int base;
-  byte isSelectionChanged;
+  byte chordRecall;
+  byte autoAdvance;
 public:
   void setup()
   {
@@ -19,9 +20,16 @@ public:
     for(int i=0; i<MAX_CHORD_BUFFER; ++i)
       buffer[i] = CHORD_NONE;
     current = 0;
-    count = 0;
+//    count = 0;
     base = 0;
-    isSelectionChanged = 0;
+    autoAdvance = 0;
+    chordRecall = 0;
+  }
+  void shiftLeft()
+  {
+    for(int i=current; i<MAX_CHORD_BUFFER-1; ++i)
+      buffer[i] = buffer[i+1];
+    buffer[MAX_CHORD_BUFFER-1] = CHORD_NONE;
   }
   void movePrev()
   {
@@ -30,24 +38,38 @@ public:
       --current;
       if(current < base)
         base = current;
-      isSelectionChanged = 1;
+      chordRecall = 1;
     }
   }
   void moveNext()
   {
-    if(current < count)
+    if(buffer[current] == CHORD_NONE)
+      return;
+      
+    if(current == MAX_CHORD_BUFFER-1)
+    {
+      shiftLeft();
+    }    
+    else 
     {
       current++;
       if(current > base+2)
         base = current - 2;
     }
-    isSelectionChanged = 1;
+    chordRecall = 1;
   }
   void insertItem()
   {
+    for(int i=MAX_CHORD_BUFFER-1; i>current; --i)
+      buffer[i] = buffer[i-1];
+    chordRecall = 1;
   }
   void deleteItem()
   {
+    for(int i=current; i<MAX_CHORD_BUFFER-1; ++i)
+      buffer[i] = buffer[i+1];
+    buffer[MAX_CHORD_BUFFER-1] = CHORD_NONE;
+    chordRecall = 1;
   }
   void notify(CHORD_TYPE chord)
   {
@@ -56,18 +78,16 @@ public:
       
     // insert chord at current position
     buffer[current] = chord;
-    if(current == count)
+    if(autoAdvance)
     {  
-      if(count == MAX_CHORD_BUFFER - 1) 
+      if(current == MAX_CHORD_BUFFER - 1) 
       {
         // out of space, shift everything down one
-        for(int i = 1; i < MAX_CHORD_BUFFER-1; ++i)
-          buffer[i-1] = buffer[i];
+        shiftLeft();
       }
       else
       {
        current++;
-       count++;
        if(current > base+2)
          ++base;
       }
@@ -80,12 +100,12 @@ public:
     memset(buf, ' ', 16);
     int index = base;
     int pos = 0;
-    for(int i=0; i<3 && index <= count; ++i)
+    for(int i=0; i<3 && index < MAX_CHORD_BUFFER; ++i)
     {
       if(index == current)
         buf[pos] = '[';
       ++pos;
-      if(index == count)
+      if(buffer[index] == CHORD_NONE)
       {
         buf[pos++] = '.';
         buf[pos++] = '.';
@@ -104,20 +124,26 @@ public:
     if(index == MAX_CHORD_BUFFER-1)
       buf[15]='$';
   }
-  byte isChanged()
+  byte isChordRecall()
   {
-    if(isSelectionChanged)
+    if(chordRecall)
     {
-      isSelectionChanged = 0;
+      chordRecall = 0;
       return 1;
     }
     return 0;
   }
   CHORD_TYPE getChordSelection()
   {
-    if(count == 0)
-      return CHORD_NONE;
     return buffer[current];
+  }
+  void setAutoAdvance(byte v)
+  {
+    autoAdvance = v;
+  }
+  byte getAutoAdvance()
+  {
+    return autoAdvance;
   }
 };
 

@@ -10,9 +10,11 @@
 #include "Display.h"
 
 #define P_LED 13
+byte retrig;
 byte noteHeld[130];
 char notesHeldText[30];
 char notesHeldGraphic[30];
+CHORD_TYPE currentChord;
 
 
 
@@ -26,6 +28,7 @@ enum
   CMD_KEYTYPE,
   CMD_HOLD,
   CMD_DISPTYPE,
+  CMD_RETRIG,
   
   CMD_PREV,
   CMD_NEXT,
@@ -468,7 +471,7 @@ void playChord(byte *notes, int length)
   for(i=0; i<length; ++i)
   {
     byte ch = (notes[i]&0x7F);
-    if(!noteHeld[ch])
+    if(!noteHeld[ch] || retrig)
       midiNote(MIDI_CHAN, ch, 127);
     noteHeld[ch] = 1;
   }
@@ -660,6 +663,16 @@ void showMode()
       copyChars(&row1[9], "????");
       break;
   }
+  
+  if(retrig)
+  {
+      copyChars(&row2[9], "RTrg");
+  }
+  else
+  {
+      copyChars(&row2[9], "Tied");
+  }
+  
   Display.showRow(0, row1);
   Display.showRow(1, row2);
 }
@@ -683,6 +696,9 @@ void onCommand(int which)
     break;
   case CMD_HOLD: 
     ChordSelection.toggleHoldMode(); 
+    break;
+  case CMD_RETRIG: 
+    retrig = !retrig; 
     break;
   case CMD_DISPTYPE:
     displayMode = (displayMode == DISP_LIST)? DISP_CALC:DISP_LIST;
@@ -769,7 +785,7 @@ void onKeyEvent(unsigned long which, boolean isPress)
     // CHORD 5
     case CControlSurface::K_CHORD5:   
       if(isModePressed && isPress) 
-        ; 
+        onCommand(CMD_RETRIG); 
       else 
         ChordSelection.onChordButton(5, isPress); 
       break;
@@ -933,7 +949,7 @@ void setup()
 
   isModePressed = 0;
   repaint = 0;
-
+  retrig = 0;
 
 }
 
@@ -952,7 +968,7 @@ void loop() {
   // (note: line 1 is the second row, since counting begins with 0):
   ControlSurface.run(milliseconds);
   byte newChordSelection = ChordSelection.isChanged();
-  byte chordRecall = ChordBuffer.isChanged();
+  byte chordRecall = ChordBuffer.isChordRecall();
 
   if(isModePressed)
   {
@@ -963,19 +979,18 @@ void loop() {
   }  
   else if(repaint || newChordSelection || chordRecall)
   {
-    CHORD_TYPE chord;
     if(chordRecall)
     {
-      chord = ChordBuffer.getChordSelection();
+      currentChord = ChordBuffer.getChordSelection();
     }
-    else
+    else if(newChordSelection)
     {
-      chord = ChordSelection.getChordSelection();
-      ChordBuffer.notify(chord);
+      currentChord = ChordSelection.getChordSelection();
+      ChordBuffer.notify(currentChord);
     }
     
     byte notes[20];
-    int length = buildChord(chord, notes);
+    int length = buildChord(currentChord, notes);
     playChord(notes, length);
     
     if(displayMode == DISP_CALC)
@@ -987,14 +1002,15 @@ void loop() {
     else
     {
       char buf[16+1] = {0};
-      if(CHORD_NONE == chord)
+      if(CHORD_NONE == currentChord)
         copyChars(buf, "...");
       else
-        getChordName(chord, buf, 1);       
+        getChordName(currentChord, buf, 1);       
       Display.showRow(0, buf);
       ChordBuffer.render(buf);
       Display.showRow(1, buf, 16);
     }
+    repaint=0;
   }
 
   /*
