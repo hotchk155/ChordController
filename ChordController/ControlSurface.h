@@ -14,7 +14,7 @@ public:
   KeyHandlerFunc pfnOnKeyEvent;
   
   enum {
-    DEBOUNCE_PERIOD = 50 //ms
+    DEBOUNCE_PERIOD = 200 //ms
   };
   
   // define the pins used to scan the keyboard
@@ -38,10 +38,10 @@ public:
   };
 
   enum {  
-    K_UP      = 0x10000000UL,
-    K_DOWN    = 0x04000000UL,
-    K_SPARE    = 0x08000000UL,
-    K_MODE   = 0x02000000UL,
+    K_F1     = 0x10000000UL,
+    K_F2     = 0x04000000UL,
+    K_F3     = 0x08000000UL,
+    K_F4     = 0x02000000UL,
 
     K_INV1    = 0x00008000UL,
     K_CHORD0  = 0x00004000UL,

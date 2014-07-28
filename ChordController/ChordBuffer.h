@@ -1,15 +1,13 @@
 extern void getChordName(CHORD_TYPE chord, char *chordName, byte full);
 
-#define MAX_CHORD_BUFFER 20
+#define MAX_CHORD_BUFFER 17
 
 class CChordBuffer
 {
   CHORD_TYPE buffer[MAX_CHORD_BUFFER];
   int current;
-//  int count;
   int base;
   byte chordRecall;
-  byte autoAdvance;
 public:
   void setup()
   {
@@ -20,16 +18,20 @@ public:
     for(int i=0; i<MAX_CHORD_BUFFER; ++i)
       buffer[i] = CHORD_NONE;
     current = 0;
-//    count = 0;
     base = 0;
-    autoAdvance = 0;
     chordRecall = 0;
   }
   void shiftLeft()
   {
-    for(int i=current; i<MAX_CHORD_BUFFER-1; ++i)
+    for(int i=0; i<MAX_CHORD_BUFFER-1; ++i)
       buffer[i] = buffer[i+1];
     buffer[MAX_CHORD_BUFFER-1] = CHORD_NONE;
+  }
+  void moveFirst()
+  {
+    current = 0;
+    base = 0;
+    chordRecall = 1;
   }
   void movePrev()
   {
@@ -77,9 +79,9 @@ public:
       return;
       
     // insert chord at current position
-    buffer[current] = chord;
-    if(autoAdvance)
+    if(CHORD_NONE == buffer[current])
     {  
+      buffer[current] = chord;    
       if(current == MAX_CHORD_BUFFER - 1) 
       {
         // out of space, shift everything down one
@@ -91,6 +93,10 @@ public:
        if(current > base+2)
          ++base;
       }
+    }
+    else
+    {
+      buffer[current] = chord;    
     }
   }
   // 0123456789012345
@@ -107,10 +113,20 @@ public:
       ++pos;
       if(buffer[index] == CHORD_NONE)
       {
-        buf[pos++] = '.';
-        buf[pos++] = '.';
-        buf[pos++] = '.';
-        buf[pos++] = '.';
+        if(index == MAX_CHORD_BUFFER-1)
+        {
+          buf[pos++] = '$';
+          buf[pos++] = '$';
+          buf[pos++] = '$';
+          buf[pos++] = '$';
+        }
+        else
+        {
+          buf[pos++] = '.';
+          buf[pos++] = '.';
+          buf[pos++] = '.';
+          buf[pos++] = '.';
+        }
       }
       else
       {
@@ -119,10 +135,10 @@ public:
       }
       if(index == current)
         buf[pos] = ']';        
+      if(buffer[index] == CHORD_NONE)
+        break;
       ++index;
     }    
-    if(index == MAX_CHORD_BUFFER-1)
-      buf[15]='$';
   }
   byte isChordRecall()
   {
@@ -136,14 +152,6 @@ public:
   CHORD_TYPE getChordSelection()
   {
     return buffer[current];
-  }
-  void setAutoAdvance(byte v)
-  {
-    autoAdvance = v;
-  }
-  byte getAutoAdvance()
-  {
-    return autoAdvance;
   }
 };
 

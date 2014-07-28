@@ -80,7 +80,8 @@ class CChordSelection
 
   CHORD_TYPE  chordSelection;
   CHORD_TYPE  altChordPending;
-  CHORD_TYPE  inversionType;
+  CHORD_TYPE  currentInversionType;
+  CHORD_TYPE  inversionPending;
   CHORD_TYPE  noteButtons[NUM_NOTE_BUTTONS];
   CHORD_TYPE  chordButtons[NUM_CHORD_BUTTONS];
   byte isHoldMode;  
@@ -100,7 +101,8 @@ public:
   {
     LAYOUT_FREE,
     LAYOUT_KEY_SIGNATURE,
-    LAYOUT_CHORD_FAMILY
+    LAYOUT_CHORD_FAMILY,
+    LAYOUT_MAX
   };
 
   //////////////////////////////////////////////////////////////////////////////
@@ -118,7 +120,8 @@ public:
   {
     chordSelection = CHORD_NONE;
     altChordPending = CHORD_NONE;
-    inversionType = INV_NONE;
+    currentInversionType = INV_NONE;
+    inversionPending = INV_NONE;
     memset(noteButtons,0,sizeof noteButtons);
     memset(chordButtons,0,sizeof chordButtons);
     isHoldMode = 0;  
@@ -139,7 +142,7 @@ public:
   {
     if(CHORD_NONE == chordSelection)
       return CHORD_NONE;      
-    return (((CHORD_TYPE)octaveSelection)<<12) | inversionType | chordSelection;
+    return (((CHORD_TYPE)octaveSelection)<<12) | chordSelection;
   }
 
   /////////////////////////////////////////////////////////////////////
@@ -155,13 +158,20 @@ public:
   }
 
   /////////////////////////////////////////////////////////////////////
+  void stopChord()
+  {
+      chordSelection = CHORD_NONE;
+      changeOfChord = 1;
+  }
+
+  /////////////////////////////////////////////////////////////////////
   // Lay out the note buttons according to a root, key and layout type
   void layoutNoteButtons(int root, int key, int layout)
   {
     scaleRoot = root;
     keyType = key;
     chordLayout = layout;
-    
+
     int order[12] = {
       0,1,2,4,3,5,6,7,9,8,11,10    };
     for(int i=0; i<12; ++i)
@@ -184,7 +194,7 @@ public:
       }
       else
       {
-        noteButtons[i] = root | CHORD_MAJ;  
+        noteButtons[i] = (ROOT_C + i) | CHORD_MAJ;  
       }
       ++root;
     }
@@ -226,6 +236,11 @@ public:
           chordSelection |= altChordPending;
           altChordPending = CHORD_NONE;
         }
+        if(inversionPending != INV_NONE)
+        {
+          chordSelection |= inversionPending;
+          inversionPending = INV_NONE;
+        }
         currentNoteButton = which;        
         changeOfChord = 1;
       }
@@ -249,6 +264,7 @@ public:
           chordSelection &= ~CHORD_MASK;
           chordSelection |= chordButtons[currentChordButton];
         }
+        chordSelection |= currentInversionType;
         changeOfChord = 1;
       }
       // check if the note button being released is the active one
@@ -326,23 +342,60 @@ public:
     }        
   }     
   
+
   /////////////////////////////////////////////////////////////////////
-  // Handler for when an inversion is selected
-  void onInversionButton(int which, int isPress)  
+  // CALLED WHEN AN INVERSION BUTTON IS PRESSED OR RELEASED
+  void onInversionButton(int which, int isPress)
   {
-    if(isPress)
-    {
-      if(which > 1)      
-        inversionType = INV_SECOND;
-      else
-        inversionType = INV_FIRST;
-    }
+    
+    if(which > 1)      
+        currentInversionType = isPress ? INV_SECOND : INV_NONE;
     else
+       currentInversionType = isPress ? INV_FIRST : INV_NONE;
+
+    if(isHoldMode)  // Hold mode
     {
-      inversionType = INV_NONE;
+      if(isPress)
+      {
+        // New chord button pressed
+        if(currentNoteButton < 0)
+        {
+          // Theere is not currently any note button pressed, so this 
+          // inversion will be applied to the next pressed note button
+          inversionPending = currentInversionType;
+        }
+        else
+        {          
+          // Apply this chord variation to the currenty held note
+          chordSelection &= ~INV_MASK;
+          chordSelection |= currentInversionType;
+          changeOfChord = 1;
+        }
+      }
     }
-    changeOfChord = 1;        
-  }
+    else 
+    {
+      if(isPress)
+      {
+        // In this mode the inversion buttons only have an effect when
+        // a note button is held at the same time
+        if(currentNoteButton>=0)  
+        {    
+          chordSelection &= ~INV_MASK;
+          chordSelection |= currentInversionType;;
+          changeOfChord = 1;
+        }
+      }
+      else 
+      {
+        if(currentNoteButton>=0)  
+        {
+          chordSelection &= ~INV_MASK;
+          changeOfChord = 1;
+        }
+      }
+    }        
+  }     
 
   /////////////////////////////////////////////////////////////////////
   // Handler for when an inversion is selected
@@ -419,12 +472,20 @@ public:
   void setChordLayout(byte l)
   {
     if(l != chordLayout)
-      layoutNoteButtons(scaleRoot, keyType, l);
+        layoutNoteButtons(scaleRoot, keyType, l);
   }
   /////////////////////////////////////////////////////////////////////
   byte getChordLayout()
   {
     return chordLayout;
+  }
+  /////////////////////////////////////////////////////////////////////
+  void toggleChordLayout()
+  {
+    int l = chordLayout + 1;
+    if(l>=LAYOUT_MAX)
+      l = 0;
+    setChordLayout(l);  
   }
 
 };

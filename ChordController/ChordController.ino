@@ -16,23 +16,26 @@ char notesHeldText[30];
 char notesHeldGraphic[30];
 CHORD_TYPE currentChord;
 
+#define FIRMWARE_VERSION "0.2"
 
 
 
 enum 
 {
   CMD_MODE,
-  CMD_FREE,
-  CMD_KEYSIG,
-  CMD_FAMILY,
+  CMD_LAYOUT,
+//  CMD_KEYSIG,
+//  CMD_FAMILY,
   CMD_KEYTYPE,
   CMD_HOLD,
   CMD_DISPTYPE,
   CMD_RETRIG,
+  CMD_STOP,
   
   CMD_PREV,
   CMD_NEXT,
   CMD_RESET,
+  CMD_FIRST,
   CMD_INSERT,
   CMD_DELETE
 };
@@ -47,7 +50,8 @@ enum
 byte displayMode = DISP_LIST;
 byte isModePressed = 0;
 byte repaint = 0;
-
+byte nextButtonPressed = 0;
+byte isShiftPressed = 0;
 
 CControlSurface ControlSurface;
 CDisplay        Display;
@@ -642,14 +646,16 @@ void showMode()
     copyChars(&row1[0], "???");
     break;
   }
-  copyChars(&row2[4], "Oct");
-  row2[7] = '0' + ChordSelection.getOctaveSelection();
 
   if(ChordSelection.getHoldMode())
     copyChars(&row1[4], "Hold");
   else
     copyChars(&row1[4], "Damp");
   
+  if(retrig)
+    copyChars(&row2[4], "RTrg");
+  else
+    copyChars(&row2[4], "Tied");
 
   switch(displayMode)
   {
@@ -664,14 +670,6 @@ void showMode()
       break;
   }
   
-  if(retrig)
-  {
-      copyChars(&row2[9], "RTrg");
-  }
-  else
-  {
-      copyChars(&row2[9], "Tied");
-  }
   
   Display.showRow(0, row1);
   Display.showRow(1, row2);
@@ -682,14 +680,8 @@ void onCommand(int which)
   repaint = 1; 
   switch(which)
   {
-  case CMD_FREE:
-    ChordSelection.setChordLayout(CChordSelection::LAYOUT_FREE); 
-    break;
-  case CMD_KEYSIG:
-    ChordSelection.setChordLayout(CChordSelection::LAYOUT_KEY_SIGNATURE); 
-    break;
-  case CMD_FAMILY:
-    ChordSelection.setChordLayout(CChordSelection::LAYOUT_CHORD_FAMILY);
+  case CMD_LAYOUT:
+    ChordSelection.toggleChordLayout(); 
     break;
   case CMD_KEYTYPE:
     ChordSelection.toggleKeyType();
@@ -697,11 +689,17 @@ void onCommand(int which)
   case CMD_HOLD: 
     ChordSelection.toggleHoldMode(); 
     break;
+  case CMD_STOP: 
+    ChordSelection.stopChord(); 
+    break;
   case CMD_RETRIG: 
     retrig = !retrig; 
     break;
   case CMD_DISPTYPE:
     displayMode = (displayMode == DISP_LIST)? DISP_CALC:DISP_LIST;
+    break;
+  case CMD_FIRST:
+    ChordBuffer.moveFirst();
     break;
   case CMD_PREV:
     ChordBuffer.movePrev();
@@ -726,103 +724,107 @@ void onKeyEvent(unsigned long which, boolean isPress)
 {
   switch(which)
   {
-    // UP
-    case CControlSurface::K_UP: 
+    case CControlSurface::K_F1: 
       break;
-    // DOWN
-    case CControlSurface::K_DOWN: 
-      break;
-    // SPARE
-    case CControlSurface::K_SPARE: 
-      break;
-    // MODE
-    case CControlSurface::K_MODE:     
+    case CControlSurface::K_F2: 
       isModePressed = isPress; 
       repaint = 1; 
+      break;
+    case CControlSurface::K_F3: 
+      break;
+    case CControlSurface::K_F4:     
+      isShiftPressed = isPress; 
       break;      
     // FIRST INVERSION
     case CControlSurface::K_INV1:     
       if(isModePressed && isPress) 
-        onCommand(CMD_FREE); 
+        onCommand(CMD_LAYOUT); 
       else 
         ChordSelection.onInversionButton(1, isPress); 
     break;
     // CHORD 0
     case CControlSurface::K_CHORD0:   
       if(isModePressed && isPress) 
-        onCommand(CMD_KEYSIG); 
+        onCommand(CMD_KEYTYPE); 
       else 
         ChordSelection.onChordButton(0, isPress); 
     break;
     // CHORD 1
     case CControlSurface::K_CHORD1:   
       if(isModePressed && isPress) 
-        onCommand(CMD_FAMILY); 
+        onCommand(CMD_HOLD); 
       else 
         ChordSelection.onChordButton(1, isPress); 
       break;
     // CHORD 2
     case CControlSurface::K_CHORD2:   
       if(isModePressed && isPress) 
-        onCommand(CMD_KEYTYPE); 
+        onCommand(CMD_RETRIG); 
       else 
         ChordSelection.onChordButton(2, isPress); 
       break;
     // CHORD 3
     case CControlSurface::K_CHORD3:   
       if(isModePressed && isPress) 
-        onCommand(CMD_HOLD); 
+        onCommand(CMD_DISPTYPE); 
       else 
         ChordSelection.onChordButton(3, isPress); 
       break;
     // CHORD 4
     case CControlSurface::K_CHORD4:   
       if(isModePressed && isPress) 
-        onCommand(CMD_DISPTYPE); 
+        ; 
       else 
         ChordSelection.onChordButton(4, isPress); 
       break;
     // CHORD 5
     case CControlSurface::K_CHORD5:   
       if(isModePressed && isPress) 
-        onCommand(CMD_RETRIG); 
+        ; 
       else 
         ChordSelection.onChordButton(5, isPress); 
       break;
     // CHORD 6
     case CControlSurface::K_CHORD6:   
-      if(isModePressed && isPress) 
-        ;
+      if(isShiftPressed && isPress) 
+        onCommand(CMD_RESET); 
       else 
         ChordSelection.onChordButton(6, isPress); 
       break;
     // CHORD 7
     case CControlSurface::K_CHORD7:   
-      if(isModePressed && isPress) 
-        onCommand(CMD_RESET); 
+      if(isShiftPressed && isPress) 
+        onCommand(CMD_DELETE); 
       else 
         ChordSelection.onChordButton(7, isPress); 
       break;
     // CHORD 8
     case CControlSurface::K_CHORD8:   
-      if(isModePressed && isPress) 
+      if(isShiftPressed && isPress) 
         onCommand(CMD_INSERT); 
       else 
         ChordSelection.onChordButton(8, isPress); 
       break;
     // SECOND INVERSION
     case CControlSurface::K_INV2:     
-      if(isModePressed && isPress) 
-        onCommand(CMD_DELETE); 
+      if(isShiftPressed && isPress) 
+        onCommand(CMD_STOP); 
       else 
         ChordSelection.onInversionButton(2, isPress); 
       break;
     // OCTAVE DOWN
     case CControlSurface::K_OCT_DOWN: 
-      if(isModePressed && isPress) 
+      if(isShiftPressed && isPress) 
+      {
         ChordSelection.downOctave(); 
+      }
       else if(isPress)
-        onCommand(CMD_PREV); 
+      {
+        if(nextButtonPressed)
+          onCommand(CMD_FIRST); 
+        else
+          onCommand(CMD_PREV); 
+      }
       break;
     // NOTE 0
     case CControlSurface::K_NOTE0:    
@@ -910,10 +912,22 @@ void onKeyEvent(unsigned long which, boolean isPress)
     break;
     // OCTAVE UP
     case CControlSurface::K_OCT_UP:   
-      if(isModePressed && isPress) 
-        ChordSelection.upOctave(); 
-      else if(isPress)
-        onCommand(CMD_NEXT); 
+      if(isPress)
+      {
+        if(isShiftPressed) 
+        {
+          ChordSelection.upOctave(); 
+        }
+        else 
+        {
+          onCommand(CMD_NEXT); 
+          nextButtonPressed = 1;
+        }
+      }
+      else
+      {
+        nextButtonPressed = 0;         
+      }
       break;
   }
 }
@@ -933,13 +947,12 @@ void setup()
   delay(1);
   midiSetup();
   memset(noteHeld, 0, sizeof noteHeld);
-  renderNotesHeld();
   Display.showRow(0, "--== MIDIOT ==--");
-  Display.showRow(1, notesHeldGraphic, 16);
+  Display.showRow(1, "F/W version " FIRMWARE_VERSION);
   ControlSurface.setLED(0, 1);
   ControlSurface.setLED(1, 1);
   ControlSurface.setLED(2, 1);
-  delay(500);
+  delay(2000);
   ControlSurface.setLED(0, 0);
   ControlSurface.setLED(1, 0);
   ControlSurface.setLED(2, 0);
@@ -948,9 +961,10 @@ void setup()
   ChordSelection.layoutNoteButtons(ROOT_C, CChordSelection::KEY_MAJOR, CChordSelection::LAYOUT_FREE);
 
   isModePressed = 0;
-  repaint = 0;
-  retrig = 0;
-
+  isShiftPressed = 0;
+  repaint = 1;
+  retrig = 0;  
+  nextButtonPressed = 0;
 }
 
 
@@ -970,14 +984,7 @@ void loop() {
   byte newChordSelection = ChordSelection.isChanged();
   byte chordRecall = ChordBuffer.isChordRecall();
 
-  if(isModePressed)
-  {
-    if(repaint || newChordSelection)
-    {
-      showMode();
-    }
-  }  
-  else if(repaint || newChordSelection || chordRecall)
+  if(repaint || newChordSelection || chordRecall)
   {
     if(chordRecall)
     {
@@ -992,8 +999,12 @@ void loop() {
     byte notes[20];
     int length = buildChord(currentChord, notes);
     playChord(notes, length);
-    
-    if(displayMode == DISP_CALC)
+
+    if(isModePressed)
+    {
+      showMode();
+    }    
+    else if(displayMode == DISP_CALC)
     {
       renderNotesHeld();
       Display.showRow(0, notesHeldText, 16);
@@ -1001,59 +1012,20 @@ void loop() {
     }
     else
     {
-      char buf[16+1] = {0};
+      char buf[16];
+      memset(buf,' ',16);
       if(CHORD_NONE == currentChord)
-        copyChars(buf, "...");
+        copyChars(buf, "....");
       else
         getChordName(currentChord, buf, 1);       
-      Display.showRow(0, buf);
+      buf[13] = '[';
+      buf[14] = '0' + ChordSelection.getOctaveSelection();
+      buf[15] = ']';
+      Display.showRow(0, buf, 16);
       ChordBuffer.render(buf);
       Display.showRow(1, buf, 16);
     }
     repaint=0;
   }
-
-  /*
-  if(repaint)
-   {
-   renderNotesHeld();
-   switch(displayMode)
-   {
-   case DISP_CALC:
-   {
-   Display.showRow(0, notesHeldText, 16);
-   Display.showRow(1, notesHeldGraphic);        
-   }
-   break;
-   case DISP_LIST:
-   {
-   char chordName[17] = {
-   0                };
-   getChordName(chord, chordName);
-   Display.showRow(0, notesHeldText, 16);
-   Display.showRow(1, chordName);        
-   }
-   break;
-   case DISP_MODE:
-   showMode();      
-   break;
-   }
-   }*/
 }
-
-
-/*
-
- 0123456789012345
- 0123456789012345
- D#m7 C#m6  #o
-  AAAA[BBBB]SSSS
- 
- octave
- 
- 
- */
-
-
-
 
