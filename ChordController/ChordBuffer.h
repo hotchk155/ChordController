@@ -130,7 +130,7 @@ public:
       }
       else
       {
-        getChordName(buffer[index], &buf[pos], 0);
+        CChordType::getChordName(buffer[index], &buf[pos], 0);
         pos+=4;
       }
       if(index == current)
